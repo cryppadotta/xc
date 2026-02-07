@@ -2,8 +2,10 @@
  * Budget enforcement for API cost tracking.
  * Stores budget config in ~/.xc/budget.json.
  * Checks daily spend against configured limits before each API call.
+ * Supports optional password protection via scrypt hashing.
  */
 
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
@@ -15,6 +17,10 @@ export type BudgetAction = "block" | "warn" | "confirm";
 export interface BudgetConfig {
   daily?: number;
   action: BudgetAction;
+  /** scrypt hash of the lock password (hex). */
+  passwordHash?: string;
+  /** Salt used for scrypt hashing (hex). */
+  passwordSalt?: string;
 }
 
 /** Path to budget configuration file. */
@@ -44,6 +50,45 @@ export function resetBudget(): void {
   if (fs.existsSync(budgetPath)) {
     fs.unlinkSync(budgetPath);
   }
+}
+
+/** Hash a password with scrypt using the given salt. Returns hex string. */
+export function hashPassword(password: string, salt: string): string {
+  return crypto.scryptSync(password, salt, 64).toString("hex");
+}
+
+/** Check if the budget is password-locked. */
+export function isLocked(): boolean {
+  const budget = loadBudget();
+  return !!(budget.passwordHash && budget.passwordSalt);
+}
+
+/** Verify a password against the stored hash. Returns true if correct. */
+export function verifyPassword(password: string): boolean {
+  const budget = loadBudget();
+  if (!budget.passwordHash || !budget.passwordSalt) return true;
+  const hash = hashPassword(password, budget.passwordSalt);
+  return hash === budget.passwordHash;
+}
+
+/**
+ * Lock the budget with a password.
+ * Generates a random salt and stores the scrypt hash.
+ */
+export function lockBudget(password: string): void {
+  const budget = loadBudget();
+  const salt = crypto.randomBytes(32).toString("hex");
+  budget.passwordSalt = salt;
+  budget.passwordHash = hashPassword(password, salt);
+  saveBudget(budget);
+}
+
+/** Remove the password lock from the budget. */
+export function unlockBudget(): void {
+  const budget = loadBudget();
+  delete budget.passwordHash;
+  delete budget.passwordSalt;
+  saveBudget(budget);
 }
 
 /** Prompt the user for y/N confirmation on stderr. */

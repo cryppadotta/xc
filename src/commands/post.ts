@@ -5,10 +5,12 @@
  *   xc post "hello"
  *   xc post "first" --thread "second" --thread "third"
  *   xc post "reply text" --reply <id>
+ *   xc post "with image" --media photo.jpg
  */
 
 import { Command } from "commander";
 import { getClient } from "../lib/api.js";
+import { uploadMedia } from "./media.js";
 
 /** Result type for the posts.create SDK method. */
 interface PostResult {
@@ -22,6 +24,7 @@ export function registerPostCommand(program: Command): void {
     .option("--reply <id>", "Reply to a post by ID")
     .option("--quote <id>", "Quote a post by ID")
     .option("--thread <texts...>", "Additional posts to chain as a thread")
+    .option("--media <file>", "Attach media file (image, GIF, or video)")
     .option("--json", "Output raw JSON")
     .option("--account <name>", "Account to use")
     .action(async (text: string, opts) => {
@@ -31,6 +34,13 @@ export function registerPostCommand(program: Command): void {
 
         // All texts in order: first post + thread continuations
         const allTexts = [text, ...threadTexts];
+
+        // Upload media if provided (attaches to the first post only)
+        let mediaId: string | undefined;
+        if (opts.media) {
+          console.error("Uploading media...");
+          mediaId = await uploadMedia(opts.media, opts.account);
+        }
 
         // Post each tweet in sequence, chaining replies
         const posted: Array<{ id: string; text: string }> = [];
@@ -44,9 +54,12 @@ export function registerPostCommand(program: Command): void {
             body.reply = { inReplyToTweetId: replyToId };
           }
 
-          // Only the first post supports quoting
+          // Only the first post supports quoting and media
           if (i === 0 && opts.quote) {
             body.quoteTweetId = opts.quote;
+          }
+          if (i === 0 && mediaId) {
+            body.media = { mediaIds: [mediaId] };
           }
 
           const result = (await client.posts.create(

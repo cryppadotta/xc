@@ -2,9 +2,23 @@
 
 import { Command } from "commander";
 import { registerAuthCommand } from "./commands/auth.js";
+import {
+  registerBookmarksCommand,
+  registerBookmarkCommand,
+  registerUnbookmarkCommand,
+} from "./commands/bookmarks.js";
 import { registerBudgetCommand } from "./commands/budget.js";
 import { registerCostCommand } from "./commands/cost.js";
+import { registerDmCommand } from "./commands/dm.js";
+import {
+  registerFollowersCommand,
+  registerFollowingCommand,
+  registerFollowCommand,
+  registerUnfollowCommand,
+} from "./commands/followers.js";
 import { registerLikeCommand, registerUnlikeCommand } from "./commands/like.js";
+import { registerListsCommand, registerListCommand } from "./commands/lists.js";
+import { registerMediaCommand } from "./commands/media.js";
 import { registerPostCommand } from "./commands/post.js";
 import { registerSearchCommand } from "./commands/search.js";
 import { registerStreamCommand } from "./commands/stream.js";
@@ -34,6 +48,17 @@ registerUnlikeCommand(program);
 registerUsageCommand(program);
 registerCostCommand(program);
 registerBudgetCommand(program);
+registerDmCommand(program);
+registerMediaCommand(program);
+registerBookmarksCommand(program);
+registerBookmarkCommand(program);
+registerUnbookmarkCommand(program);
+registerListsCommand(program);
+registerListCommand(program);
+registerFollowersCommand(program);
+registerFollowingCommand(program);
+registerFollowCommand(program);
+registerUnfollowCommand(program);
 
 // Show cost footer after every command (unless --quiet)
 program.hook("postAction", () => {
