@@ -16,21 +16,33 @@ pnpm dev -- <command>
 
 ## Auth
 
-xc uses **OAuth 2.0 with PKCE** — you need a Client ID from the X Developer Portal. No client secret required.
+xc uses **OAuth 2.0 with PKCE** — you need a Client ID from the X Developer Portal.
 
 ### Getting a Client ID
 
 1. Go to [developer.x.com](https://developer.x.com) (existing apps) or [console.x.com](https://console.x.com) (new projects)
 2. Create or select an app
-3. Under **OAuth 2.0 settings**, copy your **Client ID**
+3. Under **OAuth 2.0 settings**, copy your **Client ID** (and optionally your **Client Secret** for confidential clients)
 4. Set the **Callback URL** to `http://127.0.0.1:3391/callback`
-5. Enable the required scopes: `tweet.read`, `tweet.write`, `users.read`, `offline.access`
+5. Enable the required scopes (xc requests all of these automatically):
+   - `tweet.read`, `tweet.write` — read/write posts
+   - `users.read` — look up users
+   - `follows.read`, `follows.write` — manage follows
+   - `like.read`, `like.write` — manage likes
+   - `list.read`, `list.write` — manage lists
+   - `bookmark.read`, `bookmark.write` — manage bookmarks
+   - `dm.read`, `dm.write` — read/send DMs
+   - `media.write` — upload media
+   - `offline.access` — refresh tokens
 
 ### Login
 
 ```bash
 # Interactive OAuth login (opens browser)
 xc auth login --client-id <YOUR_CLIENT_ID>
+
+# With client secret (for confidential apps — enables token refresh)
+xc auth login --client-id <YOUR_CLIENT_ID> --client-secret <YOUR_SECRET>
 
 # App-only Bearer token (read-only, no user context)
 xc auth token <BEARER_TOKEN>
@@ -55,7 +67,7 @@ xc auth switch work
 xc search "query" --account work
 ```
 
-Credentials are stored in `~/.config/xc/config.json` (or `$XC_CONFIG_DIR/config.json`).
+Credentials are stored in `~/.xc/config.json` (or `$XC_CONFIG_DIR/config.json`). Legacy `~/.config/xc/` configs are auto-migrated.
 
 ## Commands
 
@@ -100,6 +112,7 @@ xc post "Check this" --quote 123 # Quote a post
 xc post "First" --thread "Second" "Third"  # Post a thread
 xc post "Photo" --media photo.jpg          # Post with media attachment
 xc post "text" --json            # Show raw response
+xc delete 1234567890             # Delete a post
 ```
 
 ### Likes
@@ -243,7 +256,7 @@ xc budget reset --password pass  # If locked
 
 ## Config
 
-All configuration is stored in `~/.config/xc/` (or `$XC_CONFIG_DIR`):
+All configuration is stored in `~/.xc/` (or `$XC_CONFIG_DIR`):
 
 | File | Contents |
 |------|----------|
@@ -251,25 +264,7 @@ All configuration is stored in `~/.config/xc/` (or `$XC_CONFIG_DIR`):
 | `budget.json` | Budget limits and password lock |
 | `usage.jsonl` | API request cost log (append-only) |
 
-### Auth Config Format
-
-```json
-{
-  "defaultAccount": "default",
-  "accounts": {
-    "default": {
-      "name": "default",
-      "auth": {
-        "type": "oauth2",
-        "clientId": "<YOUR_CLIENT_ID>",
-        "accessToken": "...",
-        "refreshToken": "...",
-        "expiresAt": 1234567890000
-      }
-    }
-  }
-}
-```
+Legacy `~/.config/xc/` configs are auto-migrated on first run.
 
 ## Development
 

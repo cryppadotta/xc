@@ -13,7 +13,8 @@ Use `xc` to interact with X (Twitter) via the official API. Pay-per-use with bui
 
 - Must be authenticated first: `xc auth status` to check
 - If not authenticated: `xc auth login --client-id <CLIENT_ID>` (requires X Developer Portal app)
-- Config stored in `~/.config/xc/`
+- With client secret: `xc auth login --client-id <ID> --client-secret <SECRET>` (enables token refresh)
+- Config stored in `~/.xc/` (or `$XC_CONFIG_DIR`)
 
 ## Quick Reference
 
@@ -86,7 +87,8 @@ xc usage                           # X API usage stats (Bearer Token only)
 - **JSON output**: Most commands support `--json` for machine-readable output.
 - **Multi-account**: Use `--account <name>` on any command, or `xc auth switch <name>`.
 - **Rate limits**: The X API has rate limits per endpoint. If you hit 429 errors, wait and retry.
-- **Paid tier features**: DMs and media upload require a paid X API plan (Basic or higher). Free tier returns 403.
+- **OAuth scopes**: xc requests all scopes at login including `media.write`, `dm.read`, `dm.write`. If you get 403 on media/DMs, re-authenticate to pick up the new scopes.
+- **Paid tier features**: DMs and media upload require a paid X API plan (pay-per-use or Basic+). Free tier returns 403.
 - **Bearer Token features**: `stream` and `usage` commands require app-only Bearer Token auth (`xc auth token <TOKEN>`), not OAuth 2.0.
 - **Search minimum**: X API returns a minimum of 10 results regardless of `-n` value.
 
