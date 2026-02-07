@@ -1,103 +1,258 @@
 # xc — X API CLI
 
-CLI client for the [X API v2](https://docs.x.com/x-api/introduction). Pay-per-use, no cookie scraping.
+CLI client for the [X API v2](https://docs.x.com/x-api/introduction). Pay-per-use, no cookie scraping. Built on the official [@xdevplatform/xdk](https://github.com/xdevplatform/xdk) SDK with OAuth 2.0 PKCE.
 
-## Setup
+## Install
 
 ```bash
+git clone https://github.com/jalehman/xc.git
+cd xc
 pnpm install
 pnpm build
 
-# Or run directly:
-pnpm dev -- auth login
+# Run directly without building:
+pnpm dev -- <command>
 ```
 
 ## Auth
 
+xc uses **OAuth 2.0 with PKCE** — you need a Client ID from the X Developer Portal. No client secret required.
+
+### Getting a Client ID
+
+1. Go to [developer.x.com](https://developer.x.com) (existing apps) or [console.x.com](https://console.x.com) (new projects)
+2. Create or select an app
+3. Under **OAuth 2.0 settings**, copy your **Client ID**
+4. Set the **Callback URL** to `http://127.0.0.1:3391/callback`
+5. Enable the required scopes: `tweet.read`, `tweet.write`, `users.read`, `offline.access`
+
+### Login
+
 ```bash
-# OAuth 2.0 with PKCE (read + write)
+# Interactive OAuth login (opens browser)
 xc auth login --client-id <YOUR_CLIENT_ID>
 
-# Or app-only Bearer token (read only)
+# App-only Bearer token (read-only, no user context)
 xc auth token <BEARER_TOKEN>
 
-# Check status
+# Check auth status
 xc auth status
 
-# Multiple accounts
-xc auth login --account pagedrop --client-id <ID>
-xc auth switch pagedrop
+# Logout
+xc auth logout
 ```
 
-## Getting a Client ID
+### Multiple Accounts
 
-**Option A: Use the legacy portal (developer.x.com)**
-1. Go to https://developer.x.com and sign in
-2. Go to **Projects & Apps** → your app
-3. Click the **gear icon** (settings) for your app
-4. Look for **"User authentication settings"** or **"OAuth 2.0"**
-5. Your **Client ID** should be visible there
-6. Set the **Callback URL** to `http://127.0.0.1:3391/callback`
+```bash
+# Login with a named account
+xc auth login --account work --client-id <CLIENT_ID>
 
-**Option B: Use the new console (console.x.com)**
-1. Go to https://console.x.com and sign up/sign in
-2. Create a new project and app
-3. Go to **Keys and Tokens** or **OAuth 2.0** settings
-4. Copy your **Client ID**
-5. Set the callback URL to `http://127.0.0.1:3391/callback`
+# Switch default account
+xc auth switch work
 
-**Note:** The legacy portal (developer.x.com) shows existing apps and OAuth settings. The new console (console.x.com) is for new projects. The OAuth 2.0 Client ID is configured per-app.
+# Use a specific account for one command
+xc search "query" --account work
+```
 
-## OAuth 2.0 Setup Requirements
-
-| Field | Value |
-|-------|-------|
-| Callback URL | `http://127.0.0.1:3391/callback` |
-| Required Scopes | `tweet.read`, `tweet.write`, `users.read`, `offline.access` |
-
-The CLI uses **PKCE** (Proof Key for Code Exchange), so you don't need a client secret — only the Client ID.
+Credentials are stored in `~/.config/xc/config.json` (or `$XC_CONFIG_DIR/config.json`).
 
 ## Commands
 
-```bash
-xc whoami              # Show authenticated user
-xc auth status         # Auth status for all accounts
-xc auth switch <name>  # Switch default account
-xc auth logout         # Remove account
-```
-
-## Testing the OAuth Flow
+### Identity
 
 ```bash
-# From the xc project directory:
-cd ~/Projects/xc
-
-# Build and run:
-pnpm build
-./dist/cli.js auth login --client-id <YOUR_CLIENT_ID>
-
-# This will:
-# 1. Start a local server on port 3391
-# 2. Open your browser to the X authorization page
-# 3. Click "Authorize" when prompted
-# 4. Receive the callback and exchange for tokens
-# 5. Store credentials in ~/.config/xc/config.json
+xc whoami                        # Show authenticated user
+xc whoami --json                 # JSON output
 ```
 
-## Development
+### Search
 
 ```bash
-pnpm dev -- <command>  # Run without building
-pnpm build             # Compile TypeScript
-pnpm lint              # Type check
-pnpm test              # Run tests
+xc search "typescript"           # Search recent posts (last 7 days)
+xc search "from:elonmusk" --limit 20
+xc search "AI" --archive         # Full archive search (if your plan supports it)
+xc search "query" --json         # Raw JSON output
 ```
 
-## Config Location
+### Users
 
-Auth credentials are stored in: `~/.config/xc/config.json` (or `$XC_CONFIG_DIR/config.json`)
+```bash
+xc user elonmusk                 # Look up a user by @username
+xc user jlehman_ --json
+```
 
-Format:
+### Timeline
+
+```bash
+xc timeline                      # Your home timeline
+xc timeline --limit 20
+xc timeline elonmusk             # A specific user's posts
+xc timeline elonmusk --json
+```
+
+### Posting
+
+```bash
+xc post "Hello world"            # Create a post
+xc post "Reply" --reply 123456   # Reply to a post
+xc post "Check this" --quote 123 # Quote a post
+xc post "First" --thread "Second" "Third"  # Post a thread
+xc post "Photo" --media photo.jpg          # Post with media attachment
+xc post "text" --json            # Show raw response
+```
+
+### Likes
+
+```bash
+xc like 1234567890               # Like a post by ID
+xc unlike 1234567890             # Unlike a post
+```
+
+### Bookmarks
+
+```bash
+xc bookmarks                     # List your bookmarks
+xc bookmark 1234567890           # Bookmark a post
+xc unbookmark 1234567890         # Remove bookmark
+```
+
+### Lists
+
+```bash
+xc lists                         # List your owned lists
+xc list 1234567890               # View posts in a list
+```
+
+### Followers
+
+```bash
+xc followers elonmusk            # List followers of a user
+xc followers elonmusk --limit 50
+xc following elonmusk            # List who a user follows
+xc follow elonmusk               # Follow a user
+xc unfollow elonmusk             # Unfollow a user
+```
+
+### Direct Messages
+
+```bash
+xc dm list                       # List recent DM conversations
+xc dm history username           # View DM history with a user
+xc dm send username "Hello"      # Send a DM
+```
+
+### Media
+
+```bash
+xc media upload photo.jpg        # Upload media, returns media_id
+# Then use with post:
+xc post "Check this out" --media photo.jpg
+```
+
+### Streaming
+
+```bash
+xc stream rules                  # List current stream rules
+xc stream add "AI OR LLM"       # Add a filtered stream rule
+xc stream remove <rule-id>      # Remove a rule by ID
+xc stream clear                  # Remove all rules
+xc stream connect                # Connect to stream (outputs posts in real-time)
+xc stream connect --json         # Raw JSON stream output
+```
+
+## Cost Tracking
+
+Every API call is logged to `~/.config/xc/usage.jsonl` with timestamp, endpoint, method, and estimated cost. A cost footer is appended to every command's output.
+
+```bash
+xc cost                          # Cost summary (1h, 24h, 7d, 30d)
+xc cost --daily                  # Day-by-day breakdown
+xc cost --json                   # Machine-readable summary
+xc cost log                      # Raw request log (last 20)
+xc cost log --limit 50           # More entries
+xc cost log --json               # Raw JSON log
+```
+
+Suppress the per-command cost footer with `--quiet`:
+
+```bash
+xc search "query" --quiet
+```
+
+### API Usage Stats
+
+```bash
+xc usage                         # X API usage stats (tweet caps, etc.)
+xc usage --json
+```
+
+## Budget Enforcement
+
+Set daily spending limits to avoid surprise costs. Budget config lives in `~/.config/xc/budget.json`.
+
+### Setting a Budget
+
+```bash
+xc budget set --daily 2.00                    # Warn when over $2/day
+xc budget set --daily 5.00 --action block     # Block requests over $5/day
+xc budget set --daily 1.00 --action confirm   # Ask for confirmation when over
+```
+
+**Actions:**
+- `warn` (default) — print a warning but allow the request
+- `block` — reject the request with an error
+- `confirm` — prompt interactively before proceeding
+
+### Viewing Budget Status
+
+```bash
+xc budget show
+# Budget:
+#
+#   Daily limit: $2.00
+#   Today spent: $0.45 (22%)
+#   Remaining:   $1.55
+#   Action:      warn
+#   Locked:      no
+```
+
+### Password Protection
+
+Lock your budget so it can't be changed without a password:
+
+```bash
+xc budget lock --password mysecret
+
+# Now set/reset require --password
+xc budget set --daily 10.00 --password mysecret
+xc budget reset --password mysecret
+
+# Remove the lock
+xc budget unlock --password mysecret
+```
+
+`show` and `cost` never require a password — only `set` and `reset` do.
+
+### Removing Budget
+
+```bash
+xc budget reset                  # Remove budget config
+xc budget reset --password pass  # If locked
+```
+
+## Config
+
+All configuration is stored in `~/.config/xc/` (or `$XC_CONFIG_DIR`):
+
+| File | Contents |
+|------|----------|
+| `config.json` | Auth credentials (OAuth tokens, accounts) |
+| `budget.json` | Budget limits and password lock |
+| `usage.jsonl` | API request cost log (append-only) |
+
+### Auth Config Format
+
 ```json
 {
   "defaultAccount": "default",
@@ -115,3 +270,26 @@ Format:
   }
 }
 ```
+
+## Development
+
+```bash
+pnpm dev -- <command>    # Run without building
+pnpm build               # Compile TypeScript
+pnpm lint                # Type check
+pnpm test                # Run tests (vitest)
+```
+
+## Global Flags
+
+| Flag | Description |
+|------|-------------|
+| `--quiet` | Suppress cost footer |
+| `--json` | Raw JSON output (most commands) |
+| `--account <name>` | Use a specific named account |
+| `-V, --version` | Show version |
+| `-h, --help` | Show help |
+
+## License
+
+MIT
