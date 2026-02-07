@@ -24,6 +24,7 @@ const COST_MAP: Record<string, number> = {
   "posts.searchRecent": 0.01,
   "posts.searchAll": 0.02,
   "posts.create": 0.01,
+  "posts.delete": 0.005,
   "users.getMe": 0.005,
   "users.getByUsername": 0.005,
   "users.getPosts": 0.005,
@@ -58,6 +59,7 @@ const DEFAULT_COST = 0.005;
 /** Inferred HTTP method per endpoint. Defaults to GET. */
 const METHOD_MAP: Record<string, string> = {
   "posts.create": "POST",
+  "posts.delete": "DELETE",
   "users.likePost": "POST",
   "users.unlikePost": "DELETE",
   "users.createBookmark": "POST",

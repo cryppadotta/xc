@@ -40,7 +40,7 @@ export function registerFollowersCommand(program: Command): void {
   program
     .command("followers <username>")
     .description("List followers of a user")
-    .option("--limit <n>", "Max results (1-1000)", "100")
+    .option("-n, --limit <n>", "Max results (1-1000)", "100")
     .option("--json", "Output raw JSON")
     .option("--account <name>", "Account to use")
     .action(async (username: string, opts) => {
@@ -81,7 +81,7 @@ export function registerFollowingCommand(program: Command): void {
   program
     .command("following <username>")
     .description("List who a user follows")
-    .option("--limit <n>", "Max results (1-1000)", "100")
+    .option("-n, --limit <n>", "Max results (1-1000)", "100")
     .option("--json", "Output raw JSON")
     .option("--account <name>", "Account to use")
     .action(async (username: string, opts) => {

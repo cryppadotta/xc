@@ -11,7 +11,7 @@ export function registerSearchCommand(program: Command): void {
     .command("search <query>")
     .description("Search posts (recent 7 days, or full archive with --archive)")
     .option("--archive", "Search full archive instead of recent")
-    .option("--limit <n>", "Max results (10-100, or 10-500 for archive)", "10")
+    .option("-n, --limit <n>", "Max results (10-100, or 10-500 for archive)", "10")
     .option("--json", "Output raw JSON")
     .option("--account <name>", "Account to use")
     .action(async (query: string, opts) => {
@@ -21,7 +21,7 @@ export function registerSearchCommand(program: Command): void {
           tweetFields: TWEET_FIELDS,
           expansions: EXPANSIONS,
           userFields: USER_FIELDS,
-          maxResults: parseInt(opts.limit, 10),
+          maxResults: Math.max(10, parseInt(opts.limit, 10)),
         };
 
         const result = opts.archive

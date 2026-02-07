@@ -71,7 +71,7 @@ export function registerCostCommand(program: Command): void {
   cost
     .command("log")
     .description("Show raw request log")
-    .option("--limit <n>", "Show last N entries", "20")
+    .option("-n, --limit <n>", "Show last N entries", "20")
     .option("--json", "Output raw JSON")
     .action((opts) => {
       const entries = loadUsageLog();

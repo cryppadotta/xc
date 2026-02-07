@@ -80,7 +80,7 @@ export function registerListCommand(program: Command): void {
   program
     .command("list <list-id>")
     .description("View posts in a list")
-    .option("--limit <n>", "Max results (1-100)", "20")
+    .option("-n, --limit <n>", "Max results (1-100)", "20")
     .option("--json", "Output raw JSON")
     .option("--account <name>", "Account to use")
     .action(async (listId: string, opts) => {

@@ -91,6 +91,7 @@ export async function getClient(accountName?: string): Promise<Client> {
       console.error("Refreshing access token...");
       const result = await refreshAccessToken({
         clientId: auth.clientId,
+        clientSecret: auth.clientSecret,
         refreshToken: auth.refreshToken,
       });
 

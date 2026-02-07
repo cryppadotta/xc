@@ -13,7 +13,7 @@ export function registerTimelineCommand(program: Command): void {
     .description(
       "View home timeline, or a user's posts with @username argument",
     )
-    .option("--limit <n>", "Max results (1-100)", "20")
+    .option("-n, --limit <n>", "Max results (1-100)", "20")
     .option("--json", "Output raw JSON")
     .option("--account <name>", "Account to use")
     .action(async (username: string | undefined, opts) => {

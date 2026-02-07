@@ -59,6 +59,7 @@ export function registerAuthCommand(program: Command): void {
             refreshToken: result.refreshToken,
             expiresAt: result.expiresAt,
             clientId,
+            ...(clientSecret ? { clientSecret } : {}),
           },
         });
 

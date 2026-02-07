@@ -19,6 +19,7 @@ import {
 import { registerLikeCommand, registerUnlikeCommand } from "./commands/like.js";
 import { registerListsCommand, registerListCommand } from "./commands/lists.js";
 import { registerMediaCommand } from "./commands/media.js";
+import { registerDeleteCommand } from "./commands/delete.js";
 import { registerPostCommand } from "./commands/post.js";
 import { registerSearchCommand } from "./commands/search.js";
 import { registerStreamCommand } from "./commands/stream.js";
@@ -40,6 +41,7 @@ registerAuthCommand(program);
 registerWhoamiCommand(program);
 registerSearchCommand(program);
 registerStreamCommand(program);
+registerDeleteCommand(program);
 registerPostCommand(program);
 registerUserCommand(program);
 registerTimelineCommand(program);

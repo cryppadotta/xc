@@ -148,12 +148,14 @@ export async function runOAuthFlow(params: {
  */
 export async function refreshAccessToken(params: {
   clientId: string;
+  clientSecret?: string;
   refreshToken: string;
 }): Promise<OAuthFlowResult> {
-  const { clientId, refreshToken } = params;
+  const { clientId, clientSecret, refreshToken } = params;
 
   const oauth2 = new OAuth2({
     clientId,
+    ...(clientSecret ? { clientSecret } : {}),
     redirectUri: "http://127.0.0.1:3391/callback",
   });
 

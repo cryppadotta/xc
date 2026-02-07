@@ -20,7 +20,7 @@ export function registerBookmarksCommand(program: Command): void {
   program
     .command("bookmarks")
     .description("List your bookmarked posts")
-    .option("--limit <n>", "Max results (1-100)", "20")
+    .option("-n, --limit <n>", "Max results (1-100)", "20")
     .option("--json", "Output raw JSON")
     .option("--account <name>", "Account to use")
     .action(async (opts) => {

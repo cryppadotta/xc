@@ -20,6 +20,8 @@ export interface AuthCredential {
   bearerToken?: string;
   /** OAuth 2.0 client ID */
   clientId?: string;
+  /** OAuth 2.0 client secret (confidential clients) */
+  clientSecret?: string;
 }
 
 export interface AccountConfig {

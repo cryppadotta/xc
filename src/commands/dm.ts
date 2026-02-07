@@ -85,7 +85,7 @@ export function registerDmCommand(program: Command): void {
   // xc dm list — list recent DM conversations
   dm.command("list")
     .description("List recent DM conversations")
-    .option("--limit <n>", "Max results", "20")
+    .option("-n, --limit <n>", "Max results", "20")
     .option("--json", "Output raw JSON")
     .option("--account <name>", "Account to use")
     .action(async (opts) => {
@@ -153,7 +153,7 @@ export function registerDmCommand(program: Command): void {
   // xc dm history <@username> — message history with a user
   dm.command("history <username>")
     .description("View DM history with a user")
-    .option("--limit <n>", "Max results", "20")
+    .option("-n, --limit <n>", "Max results", "20")
     .option("--json", "Output raw JSON")
     .option("--account <name>", "Account to use")
     .action(async (username: string, opts) => {
