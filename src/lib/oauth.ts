@@ -44,15 +44,17 @@ export interface OAuthFlowResult {
  */
 export async function runOAuthFlow(params: {
   clientId: string;
+  clientSecret?: string;
   port?: number;
   onOpenUrl: (url: string) => void | Promise<void>;
 }): Promise<OAuthFlowResult> {
-  const { clientId, port = 3391 } = params;
+  const { clientId, clientSecret, port = 3391 } = params;
   const redirectUri = `http://127.0.0.1:${port}/callback`;
 
   // Configure SDK OAuth2 handler
   const oauth2 = new OAuth2({
     clientId,
+    ...(clientSecret ? { clientSecret } : {}),
     redirectUri,
     scope: SCOPES,
   });
@@ -123,11 +125,11 @@ export async function runOAuthFlow(params: {
       params.onOpenUrl(authUrl);
     });
 
-    // Timeout after 2 minutes
+    // Timeout after 5 minutes
     setTimeout(() => {
       server.close();
-      reject(new Error("OAuth flow timed out (2 minutes)"));
-    }, 120_000);
+      reject(new Error("OAuth flow timed out (5 minutes)"));
+    }, 300_000);
   });
 
   // Exchange the authorization code for tokens via SDK

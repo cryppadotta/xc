@@ -19,6 +19,7 @@ export function registerAuthCommand(program: Command): void {
     .description("Authenticate with X via OAuth 2.0 (PKCE)")
     .option("--account <name>", "Account name", "default")
     .option("--client-id <id>", "OAuth 2.0 Client ID (or set XC_CLIENT_ID)")
+    .option("--client-secret <secret>", "OAuth 2.0 Client Secret (or set XC_CLIENT_SECRET)")
     .option("--port <port>", "Local callback port", "3391")
     .action(async (opts) => {
       const clientId = opts.clientId ?? process.env.XC_CLIENT_ID;
@@ -37,8 +38,10 @@ export function registerAuthCommand(program: Command): void {
       console.log("A browser window will open for authorization.\n");
 
       try {
+        const clientSecret = opts.clientSecret ?? process.env.XC_CLIENT_SECRET;
         const result = await runOAuthFlow({
           clientId,
+          clientSecret,
           port: parseInt(opts.port, 10),
           onOpenUrl: async (url) => {
             console.log("Opening browser...");
