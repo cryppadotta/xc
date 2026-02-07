@@ -31,6 +31,9 @@ const COST_MAP: Record<string, number> = {
   "users.likePost": 0.005,
   "users.unlikePost": 0.005,
   "usage.get": 0.0,
+  "stream.getRules": 0.0,
+  "stream.updateRules": 0.005,
+  "stream.posts": 0.0,
 };
 
 const DEFAULT_COST = 0.005;
@@ -40,6 +43,7 @@ const METHOD_MAP: Record<string, string> = {
   "posts.create": "POST",
   "users.likePost": "POST",
   "users.unlikePost": "DELETE",
+  "stream.updateRules": "POST",
 };
 
 /** Get estimated dollar cost for an endpoint. */

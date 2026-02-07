@@ -1,40 +1,89 @@
+/**
+ * Post command: create a single post or a thread of posts.
+ *
+ * Usage:
+ *   xc post "hello"
+ *   xc post "first" --thread "second" --thread "third"
+ *   xc post "reply text" --reply <id>
+ */
+
 import { Command } from "commander";
 import { getClient } from "../lib/api.js";
+
+/** Result type for the posts.create SDK method. */
+interface PostResult {
+  data?: { id?: string; text?: string };
+}
 
 export function registerPostCommand(program: Command): void {
   program
     .command("post <text>")
-    .description("Create a post")
+    .description("Create a post (use --thread to post a thread)")
     .option("--reply <id>", "Reply to a post by ID")
     .option("--quote <id>", "Quote a post by ID")
+    .option("--thread <texts...>", "Additional posts to chain as a thread")
     .option("--json", "Output raw JSON")
     .option("--account <name>", "Account to use")
     .action(async (text: string, opts) => {
       try {
         const client = await getClient(opts.account);
+        const threadTexts: string[] = opts.thread ?? [];
 
-        // Build the create request
-        const body: Record<string, unknown> = { text };
-        if (opts.reply) {
-          body.reply = { inReplyToTweetId: opts.reply };
+        // All texts in order: first post + thread continuations
+        const allTexts = [text, ...threadTexts];
+
+        // Post each tweet in sequence, chaining replies
+        const posted: Array<{ id: string; text: string }> = [];
+        let replyToId: string | undefined = opts.reply;
+
+        for (let i = 0; i < allTexts.length; i++) {
+          const body: Record<string, unknown> = { text: allTexts[i] };
+
+          // First post may reply to an external ID; subsequent ones chain to the previous
+          if (replyToId) {
+            body.reply = { inReplyToTweetId: replyToId };
+          }
+
+          // Only the first post supports quoting
+          if (i === 0 && opts.quote) {
+            body.quoteTweetId = opts.quote;
+          }
+
+          const result = (await client.posts.create(
+            body as Parameters<typeof client.posts.create>[0],
+          )) as PostResult;
+
+          const data = result.data;
+          const postId = data?.id;
+
+          if (!postId) {
+            console.error(`Error: failed to create post ${i + 1} (no ID returned)`);
+            process.exit(1);
+          }
+
+          posted.push({ id: postId, text: data?.text ?? allTexts[i] });
+
+          // Chain the next post as a reply to this one
+          replyToId = postId;
         }
-        if (opts.quote) {
-          body.quoteTweetId = opts.quote;
-        }
 
-        const result = await client.posts.create(body as Parameters<typeof client.posts.create>[0]);
-
+        // Output results
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          console.log(JSON.stringify(posted, null, 2));
           return;
         }
 
-        const data = result.data as { id?: string; text?: string } | undefined;
-        if (data?.id) {
-          console.log(`Posted (id: ${data.id})`);
-          if (data.text) console.log(`  ${data.text}`);
+        if (posted.length === 1) {
+          // Single post
+          console.log(`Posted (id: ${posted[0].id})`);
+          console.log(`  ${posted[0].text}`);
         } else {
-          console.log("Post created.");
+          // Thread
+          console.log(`Thread posted (${posted.length} posts):`);
+          for (let i = 0; i < posted.length; i++) {
+            console.log(`  ${i + 1}. id:${posted[i].id}`);
+            console.log(`     ${posted[i].text}`);
+          }
         }
       } catch (err) {
         console.error(`Error: ${err instanceof Error ? err.message : err}`);

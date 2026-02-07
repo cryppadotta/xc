@@ -7,6 +7,7 @@ import { registerCostCommand } from "./commands/cost.js";
 import { registerLikeCommand, registerUnlikeCommand } from "./commands/like.js";
 import { registerPostCommand } from "./commands/post.js";
 import { registerSearchCommand } from "./commands/search.js";
+import { registerStreamCommand } from "./commands/stream.js";
 import { registerTimelineCommand } from "./commands/timeline.js";
 import { registerUsageCommand } from "./commands/usage.js";
 import { registerUserCommand } from "./commands/user.js";
@@ -24,6 +25,7 @@ program
 registerAuthCommand(program);
 registerWhoamiCommand(program);
 registerSearchCommand(program);
+registerStreamCommand(program);
 registerPostCommand(program);
 registerUserCommand(program);
 registerTimelineCommand(program);
