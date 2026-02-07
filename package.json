@@ -1,0 +1,24 @@
+{
+  "name": "xc-cli",
+  "version": "0.1.0",
+  "description": "CLI client for the X API v2",
+  "type": "module",
+  "bin": {
+    "xc": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts",
+    "lint": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "dependencies": {
+    "commander": "^13.0.0",
+    "open": "^10.0.0"
+  }
+}
