@@ -1,31 +1,27 @@
 /**
  * Tests for budget lib: password locking, hashing, verification.
+ * Uses vi.resetModules() + dynamic import so the config module's
+ * CONFIG_DIR constant picks up the temp dir from process.env.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import {
-  loadBudget,
-  saveBudget,
-  resetBudget,
-  hashPassword,
-  isLocked,
-  verifyPassword,
-  lockBudget,
-  unlockBudget,
-  getBudgetPath,
-} from "../lib/budget.js";
 
-// Use a temp dir for tests so we don't touch real config
+type BudgetModule = typeof import("../lib/budget.js");
+
 let origConfigDir: string | undefined;
 let tmpDir: string;
+let budget: BudgetModule;
 
-beforeEach(() => {
+beforeEach(async () => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "xc-budget-test-"));
   origConfigDir = process.env.XC_CONFIG_DIR;
   process.env.XC_CONFIG_DIR = tmpDir;
+
+  vi.resetModules();
+  budget = await import("../lib/budget.js");
 });
 
 afterEach(() => {
@@ -39,90 +35,90 @@ afterEach(() => {
 
 describe("budget basics", () => {
   it("returns defaults when no budget file exists", () => {
-    const budget = loadBudget();
-    expect(budget.action).toBe("warn");
-    expect(budget.daily).toBeUndefined();
+    const b = budget.loadBudget();
+    expect(b.action).toBe("warn");
+    expect(b.daily).toBeUndefined();
   });
 
   it("saves and loads budget config", () => {
-    saveBudget({ daily: 5.0, action: "block" });
-    const budget = loadBudget();
-    expect(budget.daily).toBe(5.0);
-    expect(budget.action).toBe("block");
+    budget.saveBudget({ daily: 5.0, action: "block" });
+    const b = budget.loadBudget();
+    expect(b.daily).toBe(5.0);
+    expect(b.action).toBe("block");
   });
 
   it("resets budget by removing file", () => {
-    saveBudget({ daily: 5.0, action: "warn" });
-    expect(fs.existsSync(getBudgetPath())).toBe(true);
-    resetBudget();
-    expect(fs.existsSync(getBudgetPath())).toBe(false);
+    budget.saveBudget({ daily: 5.0, action: "warn" });
+    expect(fs.existsSync(budget.getBudgetPath())).toBe(true);
+    budget.resetBudget();
+    expect(fs.existsSync(budget.getBudgetPath())).toBe(false);
   });
 });
 
 describe("password hashing", () => {
   it("produces consistent hashes with same salt", () => {
     const salt = "abcdef1234567890";
-    const h1 = hashPassword("mypassword", salt);
-    const h2 = hashPassword("mypassword", salt);
+    const h1 = budget.hashPassword("mypassword", salt);
+    const h2 = budget.hashPassword("mypassword", salt);
     expect(h1).toBe(h2);
   });
 
   it("produces different hashes with different salts", () => {
-    const h1 = hashPassword("mypassword", "salt1");
-    const h2 = hashPassword("mypassword", "salt2");
+    const h1 = budget.hashPassword("mypassword", "salt1");
+    const h2 = budget.hashPassword("mypassword", "salt2");
     expect(h1).not.toBe(h2);
   });
 
   it("produces different hashes for different passwords", () => {
     const salt = "samesalt";
-    const h1 = hashPassword("password1", salt);
-    const h2 = hashPassword("password2", salt);
+    const h1 = budget.hashPassword("password1", salt);
+    const h2 = budget.hashPassword("password2", salt);
     expect(h1).not.toBe(h2);
   });
 });
 
 describe("budget locking", () => {
   it("reports unlocked when no password set", () => {
-    saveBudget({ daily: 5.0, action: "warn" });
-    expect(isLocked()).toBe(false);
+    budget.saveBudget({ daily: 5.0, action: "warn" });
+    expect(budget.isLocked()).toBe(false);
   });
 
   it("locks budget with password", () => {
-    saveBudget({ daily: 5.0, action: "warn" });
-    lockBudget("secret123");
-    expect(isLocked()).toBe(true);
+    budget.saveBudget({ daily: 5.0, action: "warn" });
+    budget.lockBudget("secret123");
+    expect(budget.isLocked()).toBe(true);
   });
 
   it("verifies correct password", () => {
-    saveBudget({ daily: 5.0, action: "warn" });
-    lockBudget("secret123");
-    expect(verifyPassword("secret123")).toBe(true);
+    budget.saveBudget({ daily: 5.0, action: "warn" });
+    budget.lockBudget("secret123");
+    expect(budget.verifyPassword("secret123")).toBe(true);
   });
 
   it("rejects incorrect password", () => {
-    saveBudget({ daily: 5.0, action: "warn" });
-    lockBudget("secret123");
-    expect(verifyPassword("wrong")).toBe(false);
+    budget.saveBudget({ daily: 5.0, action: "warn" });
+    budget.lockBudget("secret123");
+    expect(budget.verifyPassword("wrong")).toBe(false);
   });
 
   it("unlocks budget and removes password", () => {
-    saveBudget({ daily: 5.0, action: "warn" });
-    lockBudget("secret123");
-    expect(isLocked()).toBe(true);
+    budget.saveBudget({ daily: 5.0, action: "warn" });
+    budget.lockBudget("secret123");
+    expect(budget.isLocked()).toBe(true);
 
-    unlockBudget();
-    expect(isLocked()).toBe(false);
-    expect(verifyPassword("anything")).toBe(true);
+    budget.unlockBudget();
+    expect(budget.isLocked()).toBe(false);
+    expect(budget.verifyPassword("anything")).toBe(true);
   });
 
   it("preserves budget config when locking", () => {
-    saveBudget({ daily: 10.0, action: "block" });
-    lockBudget("mypass");
+    budget.saveBudget({ daily: 10.0, action: "block" });
+    budget.lockBudget("mypass");
 
-    const budget = loadBudget();
-    expect(budget.daily).toBe(10.0);
-    expect(budget.action).toBe("block");
-    expect(budget.passwordHash).toBeDefined();
-    expect(budget.passwordSalt).toBeDefined();
+    const b = budget.loadBudget();
+    expect(b.daily).toBe(10.0);
+    expect(b.action).toBe("block");
+    expect(b.passwordHash).toBeDefined();
+    expect(b.passwordSalt).toBeDefined();
   });
 });
