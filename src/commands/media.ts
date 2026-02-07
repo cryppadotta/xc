@@ -130,7 +130,7 @@ async function chunkedUpload(
   const finalData = (finalResult as Record<string, UploadStatusData>).data;
 
   // Poll for processing completion if needed (video transcoding)
-  if (finalData?.processingInfo) {
+  if (mediaCategory === "tweet_video" || finalData?.processingInfo) {
     await waitForProcessing(client, mediaId);
   }
 
@@ -147,7 +147,9 @@ async function waitForProcessing(
 ): Promise<void> {
   const maxAttempts = 60;
   for (let i = 0; i < maxAttempts; i++) {
-    const status = await client.media.getUploadStatus(mediaId);
+    const status = await client.media.getUploadStatus(mediaId, {
+      command: "STATUS",
+    } as Parameters<typeof client.media.getUploadStatus>[1]);
     const data = (status as Record<string, UploadStatusData>).data;
     const info = data?.processingInfo;
 

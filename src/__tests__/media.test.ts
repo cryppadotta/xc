@@ -125,4 +125,39 @@ describe("uploadMedia", () => {
 
     vi.mocked(console.error).mockRestore();
   });
+
+  it("polls processing status for videos", async () => {
+    const file = path.join(tmpDir, "clip.mp4");
+    fs.writeFileSync(file, Buffer.alloc(1024));
+
+    const mockInit = vi.fn().mockResolvedValue({ data: { id: "m_789" } });
+    const mockAppend = vi.fn().mockResolvedValue({});
+    const mockFinalize = vi.fn().mockResolvedValue({
+      data: { processingInfo: { state: "pending", checkAfterSecs: 0 } },
+    });
+    const mockStatus = vi.fn().mockResolvedValue({
+      data: { processingInfo: { state: "succeeded" } },
+    });
+
+    vi.mocked(getClient).mockResolvedValue({
+      media: {
+        initializeUpload: mockInit,
+        appendUpload: mockAppend,
+        finalizeUpload: mockFinalize,
+        getUploadStatus: mockStatus,
+      },
+    } as unknown as Awaited<ReturnType<typeof getClient>>);
+
+    // Suppress progress output
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await uploadMedia(file);
+    expect(result).toBe("m_789");
+    expect(mockFinalize).toHaveBeenCalledWith("m_789");
+    expect(mockStatus).toHaveBeenCalledWith("m_789", expect.objectContaining({
+      command: "STATUS",
+    }));
+
+    vi.mocked(console.error).mockRestore();
+  });
 });
