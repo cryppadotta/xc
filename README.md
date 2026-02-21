@@ -2,8 +2,6 @@
 
 CLI client for the [X API v2](https://docs.x.com/x-api/introduction). Pay-per-use, no cookie scraping. Built on the official [@xdevplatform/xdk](https://github.com/xdevplatform/xdk) SDK with OAuth 2.0 PKCE.
 
-Forked from [jalehman/xc](https://github.com/jalehman/xc).
-
 ## Install
 
 ```bash
@@ -11,6 +9,14 @@ npm install -g @dotta/xc
 ```
 
 Requires Node.js >= 18.
+
+## Agent Skill
+
+xc includes an [agent skill](skills/xc-cli/SKILL.md) so your agent can use `xc` on your behalf.
+
+```bash
+npx skills add https://github.com/cryppadotta/xc --skill xc-cli
+```
 
 ## Auth
 
@@ -83,7 +89,7 @@ xc whoami --json                 # JSON output
 
 ```bash
 xc search "typescript"           # Search recent posts (last 7 days)
-xc search "from:elonmusk" --limit 20
+xc search "from:dotta" --limit 20
 xc search "AI" --archive         # Full archive search (if your plan supports it)
 xc search "query" --json         # Raw JSON output
 ```
@@ -91,7 +97,7 @@ xc search "query" --json         # Raw JSON output
 ### Users
 
 ```bash
-xc user elonmusk                 # Look up a user by @username
+xc user dotta                 # Look up a user by @username
 xc user jlehman_ --json
 xc usersearch "keyword"          # Search for users by keyword
 xc usersearch "keyword" -n 10    # Limit results
@@ -102,8 +108,8 @@ xc usersearch "keyword" -n 10    # Limit results
 ```bash
 xc timeline                      # Your home timeline
 xc timeline --limit 20
-xc timeline elonmusk             # A specific user's posts
-xc timeline elonmusk --json
+xc timeline dotta             # A specific user's posts
+xc timeline dotta --json
 xc mentions                      # Your mentions
 xc mentions username             # Another user's mentions
 xc mentions -n 50                # More results
@@ -189,11 +195,11 @@ xc list unpin 1234567890         # Unpin a list
 ### Followers
 
 ```bash
-xc followers elonmusk            # List followers of a user
-xc followers elonmusk --limit 50
-xc following elonmusk            # List who a user follows
-xc follow elonmusk               # Follow a user
-xc unfollow elonmusk             # Unfollow a user
+xc followers dotta            # List followers of a user
+xc followers dotta --limit 50
+xc following dotta            # List who a user follows
+xc follow dotta               # Follow a user
+xc unfollow dotta             # Unfollow a user
 ```
 
 ### Trends
@@ -351,4 +357,4 @@ pnpm test                # Run tests (vitest)
 
 ## License
 
-MIT
+MIT — forked from [jalehman/xc](https://github.com/jalehman/xc).
