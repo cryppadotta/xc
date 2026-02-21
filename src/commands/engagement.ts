@@ -10,6 +10,7 @@
 
 import { Command } from "commander";
 import { getClient } from "../lib/api.js";
+import { outputJson } from "../lib/cost.js";
 import {
   buildUserMap,
   formatTweetList,
@@ -44,7 +45,7 @@ export function registerQuotesCommand(program: Command): void {
         });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -81,7 +82,7 @@ export function registerLikesCommand(program: Command): void {
         });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -120,7 +121,7 @@ export function registerRepostsCommand(program: Command): void {
         });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -168,7 +169,7 @@ export function registerLikedCommand(program: Command): void {
         });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 

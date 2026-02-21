@@ -8,6 +8,7 @@
 
 import { Command } from "commander";
 import { getClient } from "../lib/api.js";
+import { outputJson } from "../lib/cost.js";
 
 export function registerHideCommand(program: Command): void {
   program
@@ -24,7 +25,7 @@ export function registerHideCommand(program: Command): void {
         });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -51,7 +52,7 @@ export function registerUnhideCommand(program: Command): void {
         });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 

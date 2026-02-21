@@ -94,10 +94,11 @@ registerFollowingCommand(program);
 registerFollowCommand(program);
 registerUnfollowCommand(program);
 
-// Show cost footer after every command (unless --quiet)
-program.hook("postAction", () => {
+// Show cost footer after every command (unless --quiet or --json)
+program.hook("postAction", (_, actionCommand) => {
   const opts = program.opts();
   if (opts.quiet) return;
+  if (actionCommand.opts().json) return;
 
   const footer = formatCostFooter();
   if (footer) {
@@ -105,4 +106,6 @@ program.hook("postAction", () => {
   }
 });
 
-program.parse();
+program.parseAsync().then(() => {
+  process.exit(0);
+});

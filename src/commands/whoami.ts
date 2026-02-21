@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { getClient } from "../lib/api.js";
+import { outputJson } from "../lib/cost.js";
 
 const USER_FIELDS = [
   "created_at",
@@ -23,7 +24,7 @@ export function registerWhoamiCommand(program: Command): void {
         const result = await client.users.getMe({ userFields: USER_FIELDS });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 

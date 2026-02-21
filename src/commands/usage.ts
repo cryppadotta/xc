@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { getClient } from "../lib/api.js";
+import { outputJson } from "../lib/cost.js";
 
 interface DailyUsageEntry {
   date: string;
@@ -21,7 +22,7 @@ export function registerUsageCommand(program: Command): void {
         const result = await client.usage.get();
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 

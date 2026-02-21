@@ -9,6 +9,7 @@
 
 import { Command } from "commander";
 import { getClient } from "../lib/api.js";
+import { outputJson } from "../lib/cost.js";
 import {
   resolveAuthenticatedUserId,
   resolveUserId,
@@ -32,7 +33,7 @@ export function registerMuteCommand(program: Command): void {
         });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -59,7 +60,7 @@ export function registerUnmuteCommand(program: Command): void {
         const result = await client.users.unmuteUser(myId, targetId);
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -89,7 +90,7 @@ export function registerMutedCommand(program: Command): void {
         });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 

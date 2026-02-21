@@ -93,6 +93,9 @@ const COST_MAP: Record<string, number> = {
 
 const DEFAULT_COST = 0.005;
 
+/** In-memory log of API calls made during this process. */
+const sessionCalls: { endpoint: string; cost: number }[] = [];
+
 /** Inferred HTTP method per endpoint. Defaults to GET. */
 const METHOD_MAP: Record<string, string> = {
   "posts.create": "POST",
@@ -143,16 +146,34 @@ export function getUsageLogPath(): string {
   return path.join(getConfigDir(), "usage.jsonl");
 }
 
-/** Append a usage entry to the JSONL log. */
+/** Append a usage entry to the JSONL log and track in-memory. */
 export function logApiCall(endpoint: string): void {
   ensureConfigDir();
+  const cost = estimateCost(endpoint);
+  sessionCalls.push({ endpoint, cost });
   const entry: UsageEntry = {
     timestamp: new Date().toISOString(),
     endpoint,
     method: inferMethod(endpoint),
-    estimatedCost: estimateCost(endpoint),
+    estimatedCost: cost,
   };
   fs.appendFileSync(getUsageLogPath(), JSON.stringify(entry) + "\n");
+}
+
+/** Get cost summary for API calls made in this session. */
+export function getSessionCost(): { endpoints: string[]; total: number } {
+  const total = sessionCalls.reduce((sum, c) => sum + c.cost, 0);
+  return { endpoints: sessionCalls.map((c) => c.endpoint), total };
+}
+
+/** Print data as JSON with session cost included in the object. */
+export function outputJson(data: unknown): void {
+  const cost = getSessionCost();
+  const wrapped =
+    typeof data === "object" && data !== null && !Array.isArray(data)
+      ? { ...data, _cost: cost }
+      : { data, _cost: cost };
+  console.log(JSON.stringify(wrapped, null, 2));
 }
 
 /** Read all usage entries from the log file. */

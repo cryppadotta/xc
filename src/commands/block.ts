@@ -12,6 +12,7 @@
 
 import { Command } from "commander";
 import { getClient } from "../lib/api.js";
+import { outputJson } from "../lib/cost.js";
 import {
   resolveAuthenticatedUserId,
   resolveUserId,
@@ -46,7 +47,7 @@ export function registerBlockCommand(program: Command): void {
         const result = JSON.parse(response.body);
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -81,7 +82,7 @@ export function registerUnblockCommand(program: Command): void {
         const result = JSON.parse(response.body);
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -111,7 +112,7 @@ export function registerBlockedCommand(program: Command): void {
         });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 

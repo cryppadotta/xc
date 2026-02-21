@@ -9,6 +9,7 @@
 
 import { Command } from "commander";
 import { getClient } from "../lib/api.js";
+import { outputJson } from "../lib/cost.js";
 import { resolveUserId, resolveAuthenticatedUserId } from "../lib/resolve.js";
 
 /** Shape of a single DM event from the API. */
@@ -68,7 +69,7 @@ export function registerDmCommand(program: Command): void {
         );
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -107,7 +108,7 @@ export function registerDmCommand(program: Command): void {
         });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -178,7 +179,7 @@ export function registerDmCommand(program: Command): void {
         );
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 

@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { getClient } from "../lib/api.js";
+import { outputJson } from "../lib/cost.js";
 import { buildUserMap, formatTweetList } from "../lib/format.js";
 
 const TWEET_FIELDS = ["created_at", "public_metrics", "author_id"];
@@ -29,7 +30,7 @@ export function registerSearchCommand(program: Command): void {
           : await client.posts.searchRecent(query, searchOpts);
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 

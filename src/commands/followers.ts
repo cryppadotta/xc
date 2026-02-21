@@ -10,6 +10,7 @@
 
 import { Command } from "commander";
 import { getClient } from "../lib/api.js";
+import { outputJson } from "../lib/cost.js";
 import {
   resolveUserId,
   resolveAuthenticatedUserId,
@@ -34,7 +35,7 @@ export function registerFollowersCommand(program: Command): void {
         });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -75,7 +76,7 @@ export function registerFollowingCommand(program: Command): void {
         });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -115,7 +116,7 @@ export function registerFollowCommand(program: Command): void {
         });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -142,7 +143,7 @@ export function registerUnfollowCommand(program: Command): void {
         const result = await client.users.unfollowUser(myId, targetId);
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 

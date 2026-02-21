@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { getClient } from "../lib/api.js";
+import { outputJson } from "../lib/cost.js";
 import { buildUserMap, formatTweetList } from "../lib/format.js";
 import { resolveAuthenticatedUserId, resolveUserId } from "../lib/resolve.js";
 
@@ -39,7 +40,7 @@ export function registerTimelineCommand(program: Command): void {
         }
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 

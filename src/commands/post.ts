@@ -10,6 +10,7 @@
 
 import { Command } from "commander";
 import { getClient } from "../lib/api.js";
+import { outputJson } from "../lib/cost.js";
 import { uploadMedia } from "./media.js";
 
 /** Result type for the posts.create SDK method. */
@@ -82,7 +83,7 @@ export function registerPostCommand(program: Command): void {
 
         // Output results
         if (opts.json) {
-          console.log(JSON.stringify(posted, null, 2));
+          outputJson(posted);
           return;
         }
 

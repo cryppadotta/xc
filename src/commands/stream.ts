@@ -11,6 +11,7 @@
 
 import { Command } from "commander";
 import { getClient } from "../lib/api.js";
+import { outputJson } from "../lib/cost.js";
 
 /** Register the `stream` command group with its subcommands. */
 export function registerStreamCommand(program: Command): void {
@@ -36,7 +37,7 @@ export function registerStreamCommand(program: Command): void {
         const result = await client.stream.updateRules({ add: [rule] });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -72,7 +73,7 @@ export function registerStreamCommand(program: Command): void {
         const result = await client.stream.getRules();
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -107,7 +108,7 @@ export function registerStreamCommand(program: Command): void {
         });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -160,7 +161,7 @@ export function registerStreamCommand(program: Command): void {
         });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 

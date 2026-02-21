@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { getClient } from "../lib/api.js";
+import { outputJson } from "../lib/cost.js";
 import { resolveAuthenticatedUserId } from "../lib/resolve.js";
 
 export function registerLikeCommand(program: Command): void {
@@ -18,7 +19,7 @@ export function registerLikeCommand(program: Command): void {
         });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -44,7 +45,7 @@ export function registerUnlikeCommand(program: Command): void {
         const result = await client.users.unlikePost(userId, postId);
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 

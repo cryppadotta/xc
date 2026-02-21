@@ -18,6 +18,7 @@
 
 import { Command } from "commander";
 import { getClient } from "../lib/api.js";
+import { outputJson } from "../lib/cost.js";
 import {
   resolveAuthenticatedUserId,
   resolveUserId,
@@ -43,6 +44,37 @@ interface XList {
   private?: boolean;
 }
 
+interface ListViewOptions {
+  limit: string;
+  json?: boolean;
+  account?: string;
+}
+
+async function viewListPosts(listId: string, opts: ListViewOptions): Promise<void> {
+  const client = await getClient(opts.account);
+
+  const result = await client.lists.getPosts(listId, {
+    tweetFields: TWEET_FIELDS,
+    expansions: EXPANSIONS,
+    userFields: USER_FIELDS,
+    maxResults: parseInt(opts.limit, 10),
+  });
+
+  if (opts.json) {
+    outputJson(result);
+    return;
+  }
+
+  const tweets = result.data ?? [];
+  if (tweets.length === 0) {
+    console.log("No posts in this list.");
+    return;
+  }
+
+  const usersById = buildUserMap(result.includes?.users);
+  console.log(formatTweetList(tweets, usersById));
+}
+
 export function registerListsCommand(program: Command): void {
   program
     .command("lists")
@@ -59,7 +91,7 @@ export function registerListsCommand(program: Command): void {
         } as Parameters<typeof client.users.getOwnedLists>[1]);
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -97,9 +129,26 @@ export function registerListsCommand(program: Command): void {
 export function registerListCommand(program: Command): void {
   const list = program
     .command("list")
-    .description("List operations (view posts, create, update, delete, members, follow, pin)");
+    .description("List operations (view posts, create, update, delete, members, follow, pin)")
+    .argument("[list-id]", "View posts in a list")
+    .option("-n, --limit <n>", "Max results (1-100)", "20")
+    .option("--json", "Output raw JSON")
+    .option("--account <name>", "Account to use")
+    .action(async (listId: string | undefined, opts, command) => {
+      if (!listId) {
+        command.outputHelp();
+        return;
+      }
 
-  // Default: xc list <list-id> — view posts in a list
+      try {
+        await viewListPosts(listId, opts as ListViewOptions);
+      } catch (err) {
+        console.error(`Error: ${err instanceof Error ? err.message : err}`);
+        process.exit(1);
+      }
+    });
+
+  // Explicit subcommand variant: xc list view <list-id>
   list
     .command("view <list-id>")
     .description("View posts in a list")
@@ -108,28 +157,7 @@ export function registerListCommand(program: Command): void {
     .option("--account <name>", "Account to use")
     .action(async (listId: string, opts) => {
       try {
-        const client = await getClient(opts.account);
-
-        const result = await client.lists.getPosts(listId, {
-          tweetFields: TWEET_FIELDS,
-          expansions: EXPANSIONS,
-          userFields: USER_FIELDS,
-          maxResults: parseInt(opts.limit, 10),
-        });
-
-        if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
-          return;
-        }
-
-        const tweets = result.data ?? [];
-        if (tweets.length === 0) {
-          console.log("No posts in this list.");
-          return;
-        }
-
-        const usersById = buildUserMap(result.includes?.users);
-        console.log(formatTweetList(tweets, usersById));
+        await viewListPosts(listId, opts as ListViewOptions);
       } catch (err) {
         console.error(`Error: ${err instanceof Error ? err.message : err}`);
         process.exit(1);
@@ -155,7 +183,7 @@ export function registerListCommand(program: Command): void {
         const result = await client.lists.create({ body });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -190,7 +218,7 @@ export function registerListCommand(program: Command): void {
         const result = await client.lists.update(listId, { body });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -214,7 +242,7 @@ export function registerListCommand(program: Command): void {
         const result = await client.lists.delete(listId);
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -242,7 +270,7 @@ export function registerListCommand(program: Command): void {
         });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -279,7 +307,7 @@ export function registerListCommand(program: Command): void {
         });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -304,7 +332,7 @@ export function registerListCommand(program: Command): void {
         const result = await client.lists.removeMemberByUserId(listId, targetId);
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -331,7 +359,7 @@ export function registerListCommand(program: Command): void {
         });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -356,7 +384,7 @@ export function registerListCommand(program: Command): void {
         const result = await client.users.unfollowList(userId, listId);
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -381,7 +409,7 @@ export function registerListCommand(program: Command): void {
         const result = await client.users.pinList(userId, { listId });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -406,7 +434,7 @@ export function registerListCommand(program: Command): void {
         const result = await client.users.unpinList(userId, listId);
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 

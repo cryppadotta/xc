@@ -9,6 +9,7 @@
 
 import { Command } from "commander";
 import { getClient } from "../lib/api.js";
+import { outputJson } from "../lib/cost.js";
 
 /** Shape of a trend object from the API. */
 interface Trend {
@@ -39,7 +40,7 @@ export function registerTrendsCommand(program: Command): void {
         }
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 

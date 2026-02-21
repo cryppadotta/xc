@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { getClient } from "../lib/api.js";
+import { outputJson } from "../lib/cost.js";
 import { buildUserMap, formatTweet } from "../lib/format.js";
 
 const TWEET_FIELDS = ["created_at", "public_metrics", "author_id", "article", "note_tweet"];
@@ -34,7 +35,7 @@ export function registerGetCommand(program: Command): void {
         });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 

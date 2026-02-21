@@ -7,6 +7,7 @@
 
 import { Command } from "commander";
 import { getClient } from "../lib/api.js";
+import { outputJson } from "../lib/cost.js";
 
 export function registerDeleteCommand(program: Command): void {
   program
@@ -20,7 +21,7 @@ export function registerDeleteCommand(program: Command): void {
         const result = await client.posts.delete(postId);
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 

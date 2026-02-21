@@ -9,6 +9,7 @@
 
 import { Command } from "commander";
 import { getClient } from "../lib/api.js";
+import { outputJson } from "../lib/cost.js";
 import { resolveAuthenticatedUserId } from "../lib/resolve.js";
 import { buildUserMap, formatTweetList } from "../lib/format.js";
 
@@ -36,7 +37,7 @@ export function registerBookmarksCommand(program: Command): void {
         });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -72,7 +73,7 @@ export function registerBookmarkCommand(program: Command): void {
         });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
@@ -98,7 +99,7 @@ export function registerUnbookmarkCommand(program: Command): void {
         const result = await client.users.deleteBookmark(userId, postId);
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 

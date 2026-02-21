@@ -7,6 +7,7 @@
 
 import { Command } from "commander";
 import { getClient } from "../lib/api.js";
+import { outputJson } from "../lib/cost.js";
 import { formatUserLine, type UserResult } from "../lib/format.js";
 
 export function registerUserSearchCommand(program: Command): void {
@@ -26,7 +27,7 @@ export function registerUserSearchCommand(program: Command): void {
         });
 
         if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+          outputJson(result);
           return;
         }
 
