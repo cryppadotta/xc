@@ -18,101 +18,34 @@ xc includes an [agent skill](skills/xc-cli/SKILL.md) so your agent can use `xc` 
 npx skills add https://github.com/cryppadotta/xc --skill xc-cli
 ```
 
-## Auth
+## Quick Start
 
-xc uses **OAuth 2.0 with PKCE** — you need a Client ID from the X Developer Portal.
-
-### Getting a Client ID
-
-1. Go to [developer.x.com](https://developer.x.com) (existing apps) or [console.x.com](https://console.x.com) (new projects)
-2. Create or select an app
-3. Under **OAuth 2.0 settings**, copy your **Client ID** (and optionally your **Client Secret** for confidential clients)
-4. Set the **Callback URL** to `http://127.0.0.1:3391/callback`
-5. Enable the required scopes (xc requests all of these automatically):
-   - `tweet.read`, `tweet.write` — read/write posts
-   - `tweet.moderate.write` — hide/unhide replies
-   - `users.read` — look up users
-   - `follows.read`, `follows.write` — manage follows
-   - `like.read`, `like.write` — manage likes
-   - `list.read`, `list.write` — manage lists
-   - `bookmark.read`, `bookmark.write` — manage bookmarks
-   - `block.read`, `block.write` — manage blocks
-   - `mute.read`, `mute.write` — manage mutes
-   - `dm.read`, `dm.write` — read/send DMs
-   - `media.write` — upload media
-   - `offline.access` — refresh tokens
-
-### Login
+Get a Bearer Token from [console.x.com](https://console.x.com) and start reading immediately:
 
 ```bash
-# Interactive OAuth login (opens browser)
-xc auth login --client-id <YOUR_CLIENT_ID>
-
-# With client secret (for confidential apps — enables token refresh)
-xc auth login --client-id <YOUR_CLIENT_ID> --client-secret <YOUR_SECRET>
-
-# App-only Bearer token (read-only, no user context)
 xc auth token <BEARER_TOKEN>
-
-# Check auth status
-xc auth status
-
-# Logout
-xc auth logout
+xc get https://x.com/dotta/status/1612500057768755201
 ```
 
-### Multiple Accounts
-
-```bash
-# Login with a named account
-xc auth login --account work --client-id <CLIENT_ID>
-
-# Switch default account
-xc auth switch work
-
-# Use a specific account for one command
-xc search "query" --account work
-```
-
-Credentials are stored in `~/.xc/config.json` (or `$XC_CONFIG_DIR/config.json`). Legacy `~/.config/xc/` configs are auto-migrated.
+Bearer tokens are read-only. For posting, liking, following, and other write operations, see [Full OAuth Setup](#full-oauth-setup) below.
 
 ## Commands
 
-### Identity
+### Reading
 
 ```bash
-xc whoami                        # Show authenticated user
-xc whoami --json                 # JSON output
-```
-
-### Search
-
-```bash
+xc get <post-id>                 # Get a post by ID
+xc get https://x.com/dotta/status/1612500057768755201  # Or by URL
 xc search "typescript"           # Search recent posts (last 7 days)
-xc search "from:dotta" --limit 20
+xc search "from:dotta" -n 20    # Search by author
 xc search "AI" --archive         # Full archive search (if your plan supports it)
-xc search "query" --json         # Raw JSON output
-```
-
-### Users
-
-```bash
-xc user dotta                 # Look up a user by @username
-xc user jlehman_ --json
+xc user dotta                    # Look up a user by @username
 xc usersearch "keyword"          # Search for users by keyword
-xc usersearch "keyword" -n 10    # Limit results
-```
-
-### Timeline & Mentions
-
-```bash
 xc timeline                      # Your home timeline
-xc timeline --limit 20
-xc timeline dotta             # A specific user's posts
-xc timeline dotta --json
+xc timeline dotta                # A specific user's posts
 xc mentions                      # Your mentions
-xc mentions username             # Another user's mentions
-xc mentions -n 50                # More results
+xc mentions dotta                # Another user's mentions
+xc whoami                        # Show authenticated user
 ```
 
 ### Posting
@@ -237,6 +170,61 @@ xc stream clear                  # Remove all rules
 xc stream connect                # Connect to stream (outputs posts in real-time)
 xc stream connect --json         # Raw JSON stream output
 ```
+
+## Full OAuth Setup
+
+For write operations (posting, liking, following, DMs, etc.), you need OAuth 2.0 with PKCE.
+
+### Getting a Client ID
+
+1. Go to [developer.x.com](https://developer.x.com) (existing apps) or [console.x.com](https://console.x.com) (new projects)
+2. Create or select an app
+3. Under **OAuth 2.0 settings**, copy your **Client ID** (and optionally your **Client Secret** for confidential clients)
+4. Set the **Callback URL** to `http://127.0.0.1:3391/callback`
+5. Enable the required scopes (xc requests all of these automatically):
+   - `tweet.read`, `tweet.write` — read/write posts
+   - `tweet.moderate.write` — hide/unhide replies
+   - `users.read` — look up users
+   - `follows.read`, `follows.write` — manage follows
+   - `like.read`, `like.write` — manage likes
+   - `list.read`, `list.write` — manage lists
+   - `bookmark.read`, `bookmark.write` — manage bookmarks
+   - `block.read`, `block.write` — manage blocks
+   - `mute.read`, `mute.write` — manage mutes
+   - `dm.read`, `dm.write` — read/send DMs
+   - `media.write` — upload media
+   - `offline.access` — refresh tokens
+
+### Login
+
+```bash
+# Interactive OAuth login (opens browser)
+xc auth login --client-id <YOUR_CLIENT_ID>
+
+# With client secret (for confidential apps — enables token refresh)
+xc auth login --client-id <YOUR_CLIENT_ID> --client-secret <YOUR_SECRET>
+
+# Check auth status
+xc auth status
+
+# Logout
+xc auth logout
+```
+
+### Multiple Accounts
+
+```bash
+# Login with a named account
+xc auth login --account work --client-id <CLIENT_ID>
+
+# Switch default account
+xc auth switch work
+
+# Use a specific account for one command
+xc search "query" --account work
+```
+
+Credentials are stored in `~/.xc/config.json` (or `$XC_CONFIG_DIR/config.json`). Legacy `~/.config/xc/` configs are auto-migrated.
 
 ## Cost Tracking
 
