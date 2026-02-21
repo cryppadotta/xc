@@ -73,3 +73,24 @@ export function formatTweetList(
 ): string {
   return tweets.map((t) => formatTweet(t, usersById)).join("\n\n");
 }
+
+/** Shape of a user result for compact display. */
+export interface UserResult {
+  id?: string;
+  username?: string;
+  name?: string;
+  description?: string;
+  publicMetrics?: Record<string, number>;
+}
+
+/** Format a compact user line for user lists. */
+export function formatUserLine(user: UserResult): string {
+  const parts = [`@${user.username}`];
+  if (user.name) parts[0] += ` (${user.name})`;
+  if (user.publicMetrics?.followersCount !== undefined) {
+    parts.push(
+      `${user.publicMetrics.followersCount.toLocaleString()} followers`,
+    );
+  }
+  return `  ${parts.join(" · ")}`;
+}

@@ -52,6 +52,43 @@ const COST_MAP: Record<string, number> = {
   "stream.getRules": 0.0,
   "stream.updateRules": 0.005,
   "stream.posts": 0.0,
+  // Reposts
+  "users.repostPost": 0.005,
+  "users.unrepostPost": 0.005,
+  // Mentions
+  "users.getMentions": 0.005,
+  // Engagement lookups
+  "posts.getQuoteTweets": 0.005,
+  "posts.getLikingUsers": 0.005,
+  "posts.getRetweetedBy": 0.005,
+  "users.getLikedPosts": 0.005,
+  // Hide replies
+  "posts.hideReply": 0.005,
+  "posts.unhideReply": 0.005,
+  // Mute
+  "users.muteUser": 0.005,
+  "users.unmuteUser": 0.005,
+  "users.getMuting": 0.005,
+  // Block
+  "users.blockUser": 0.005,
+  "users.unblockUser": 0.005,
+  "users.getBlocking": 0.005,
+  // User search
+  "users.search": 0.01,
+  // List management
+  "lists.create": 0.005,
+  "lists.update": 0.005,
+  "lists.delete": 0.005,
+  "lists.getMembers": 0.005,
+  "lists.addMember": 0.005,
+  "lists.removeMember": 0.005,
+  "users.followList": 0.005,
+  "users.unfollowList": 0.005,
+  "users.pinList": 0.005,
+  "users.unpinList": 0.005,
+  // Trends
+  "trends.getPersonalized": 0.005,
+  "trends.getByWoeid": 0.005,
 };
 
 const DEFAULT_COST = 0.005;
@@ -72,6 +109,23 @@ const METHOD_MAP: Record<string, string> = {
   "media.appendUpload": "POST",
   "media.finalizeUpload": "POST",
   "stream.updateRules": "POST",
+  "users.repostPost": "POST",
+  "users.unrepostPost": "DELETE",
+  "posts.hideReply": "PUT",
+  "posts.unhideReply": "PUT",
+  "users.muteUser": "POST",
+  "users.unmuteUser": "DELETE",
+  "users.blockUser": "POST",
+  "users.unblockUser": "DELETE",
+  "lists.create": "POST",
+  "lists.update": "PUT",
+  "lists.delete": "DELETE",
+  "lists.addMember": "POST",
+  "lists.removeMember": "DELETE",
+  "users.followList": "POST",
+  "users.unfollowList": "DELETE",
+  "users.pinList": "POST",
+  "users.unpinList": "DELETE",
 };
 
 /** Get estimated dollar cost for an endpoint. */

@@ -17,6 +17,7 @@ export type { OAuth2Token };
 const SCOPES = [
   "tweet.read",
   "tweet.write",
+  "tweet.moderate.write",
   "users.read",
   "follows.read",
   "follows.write",
@@ -26,6 +27,10 @@ const SCOPES = [
   "list.write",
   "bookmark.read",
   "bookmark.write",
+  "block.read",
+  "block.write",
+  "mute.read",
+  "mute.write",
   "dm.read",
   "dm.write",
   "media.write",

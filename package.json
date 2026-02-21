@@ -1,16 +1,37 @@
 {
-  "name": "xc-cli",
+  "name": "@dotta/xc",
   "version": "0.1.0",
   "description": "CLI client for the X API v2",
   "type": "module",
+  "license": "MIT",
   "bin": {
     "xc": "./dist/cli.js"
   },
+  "files": [
+    "dist/"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/cli.ts",
     "lint": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "x",
+    "twitter",
+    "cli",
+    "api"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cryppadotta/xc.git"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

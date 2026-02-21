@@ -14,27 +14,7 @@ import {
   resolveUserId,
   resolveAuthenticatedUserId,
 } from "../lib/resolve.js";
-
-/** Shape of a user from the API. */
-interface UserResult {
-  id?: string;
-  username?: string;
-  name?: string;
-  description?: string;
-  publicMetrics?: Record<string, number>;
-}
-
-/** Format a compact user line for follower/following lists. */
-function formatUserLine(user: UserResult): string {
-  const parts = [`@${user.username}`];
-  if (user.name) parts[0] += ` (${user.name})`;
-  if (user.publicMetrics?.followersCount !== undefined) {
-    parts.push(
-      `${user.publicMetrics.followersCount.toLocaleString()} followers`,
-    );
-  }
-  return `  ${parts.join(" · ")}`;
-}
+import { formatUserLine, type UserResult } from "../lib/format.js";
 
 export function registerFollowersCommand(program: Command): void {
   program

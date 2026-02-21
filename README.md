@@ -2,17 +2,15 @@
 
 CLI client for the [X API v2](https://docs.x.com/x-api/introduction). Pay-per-use, no cookie scraping. Built on the official [@xdevplatform/xdk](https://github.com/xdevplatform/xdk) SDK with OAuth 2.0 PKCE.
 
+Forked from [jalehman/xc](https://github.com/jalehman/xc).
+
 ## Install
 
 ```bash
-git clone https://github.com/jalehman/xc.git
-cd xc
-pnpm install
-pnpm build
-
-# Run directly without building:
-pnpm dev -- <command>
+npm install -g @dotta/xc
 ```
+
+Requires Node.js >= 18.
 
 ## Auth
 
@@ -26,11 +24,14 @@ xc uses **OAuth 2.0 with PKCE** — you need a Client ID from the X Developer Po
 4. Set the **Callback URL** to `http://127.0.0.1:3391/callback`
 5. Enable the required scopes (xc requests all of these automatically):
    - `tweet.read`, `tweet.write` — read/write posts
+   - `tweet.moderate.write` — hide/unhide replies
    - `users.read` — look up users
    - `follows.read`, `follows.write` — manage follows
    - `like.read`, `like.write` — manage likes
    - `list.read`, `list.write` — manage lists
    - `bookmark.read`, `bookmark.write` — manage bookmarks
+   - `block.read`, `block.write` — manage blocks
+   - `mute.read`, `mute.write` — manage mutes
    - `dm.read`, `dm.write` — read/send DMs
    - `media.write` — upload media
    - `offline.access` — refresh tokens
@@ -92,15 +93,20 @@ xc search "query" --json         # Raw JSON output
 ```bash
 xc user elonmusk                 # Look up a user by @username
 xc user jlehman_ --json
+xc usersearch "keyword"          # Search for users by keyword
+xc usersearch "keyword" -n 10    # Limit results
 ```
 
-### Timeline
+### Timeline & Mentions
 
 ```bash
 xc timeline                      # Your home timeline
 xc timeline --limit 20
 xc timeline elonmusk             # A specific user's posts
 xc timeline elonmusk --json
+xc mentions                      # Your mentions
+xc mentions username             # Another user's mentions
+xc mentions -n 50                # More results
 ```
 
 ### Posting
@@ -115,11 +121,30 @@ xc post "text" --json            # Show raw response
 xc delete 1234567890             # Delete a post
 ```
 
-### Likes
+### Likes & Reposts
 
 ```bash
 xc like 1234567890               # Like a post by ID
 xc unlike 1234567890             # Unlike a post
+xc repost 1234567890             # Repost a post
+xc unrepost 1234567890           # Undo a repost
+```
+
+### Engagement Lookups
+
+```bash
+xc quotes 1234567890             # List quote tweets of a post
+xc likes 1234567890              # List users who liked a post
+xc reposts 1234567890            # List users who reposted a post
+xc liked                         # Posts you've liked
+xc liked username                # Posts liked by a user
+```
+
+### Reply Moderation
+
+```bash
+xc hide 1234567890               # Hide a reply on your post
+xc unhide 1234567890             # Unhide a reply
 ```
 
 ### Bookmarks
@@ -130,11 +155,35 @@ xc bookmark 1234567890           # Bookmark a post
 xc unbookmark 1234567890         # Remove bookmark
 ```
 
+### Blocks & Mutes
+
+```bash
+xc block username                # Block a user
+xc unblock username              # Unblock a user
+xc blocked                       # List blocked users
+xc blocked --json                # JSON output
+xc mute username                 # Mute a user
+xc unmute username               # Unmute a user
+xc muted                         # List muted users
+```
+
 ### Lists
 
 ```bash
 xc lists                         # List your owned lists
-xc list 1234567890               # View posts in a list
+xc list view 1234567890          # View posts in a list
+xc list create "My List"         # Create a new list
+xc list create "Secret" --private --description "My private list"
+xc list update 123 --name "New Name" --description "Updated"
+xc list update 123 --public      # Make public
+xc list delete 1234567890        # Delete a list
+xc list members 1234567890       # List members
+xc list add 123 username         # Add a member
+xc list remove 123 username      # Remove a member
+xc list follow 1234567890        # Follow a list
+xc list unfollow 1234567890      # Unfollow a list
+xc list pin 1234567890           # Pin a list
+xc list unpin 1234567890         # Unpin a list
 ```
 
 ### Followers
@@ -145,6 +194,15 @@ xc followers elonmusk --limit 50
 xc following elonmusk            # List who a user follows
 xc follow elonmusk               # Follow a user
 xc unfollow elonmusk             # Unfollow a user
+```
+
+### Trends
+
+```bash
+xc trends                        # Personalized trending topics
+xc trends --global               # Worldwide trends
+xc trends 2459115                # Trends by location (WOEID)
+xc trends --json                 # JSON output
 ```
 
 ### Direct Messages
@@ -176,7 +234,7 @@ xc stream connect --json         # Raw JSON stream output
 
 ## Cost Tracking
 
-Every API call is logged to `~/.config/xc/usage.jsonl` with timestamp, endpoint, method, and estimated cost. A cost footer is appended to every command's output.
+Every API call is logged to `~/.xc/usage.jsonl` with timestamp, endpoint, method, and estimated cost. A cost footer is appended to every command's output.
 
 ```bash
 xc cost                          # Cost summary (1h, 24h, 7d, 30d)
@@ -202,7 +260,7 @@ xc usage --json
 
 ## Budget Enforcement
 
-Set daily spending limits to avoid surprise costs. Budget config lives in `~/.config/xc/budget.json`.
+Set daily spending limits to avoid surprise costs. Budget config lives in `~/.xc/budget.json`.
 
 ### Setting a Budget
 
@@ -269,6 +327,12 @@ Legacy `~/.config/xc/` configs are auto-migrated on first run.
 ## Development
 
 ```bash
+git clone https://github.com/cryppadotta/xc.git
+cd xc
+pnpm install
+pnpm build
+npm link             # makes `xc` available globally
+
 pnpm dev -- <command>    # Run without building
 pnpm build               # Compile TypeScript
 pnpm lint                # Type check
