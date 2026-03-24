@@ -7,7 +7,7 @@ import { formatBookmarkDetail, formatBookmarkList } from "../bookmarks/format.js
 import { BookmarkStore } from "../bookmarks/store.js";
 import { cacheBookmarkedPosts, syncLocalBookmarks } from "../bookmarks/sync.js";
 import { getClient } from "../lib/api.js";
-import { outputJson } from "../lib/cost.js";
+import { getSessionCost, outputJson } from "../lib/cost.js";
 import { buildUserMap, formatTweetList } from "../lib/format.js";
 import { parsePostId } from "../lib/post-id.js";
 import { resolveAuthenticatedUserId } from "../lib/resolve.js";
@@ -170,6 +170,7 @@ export function registerBookmarksCommand(program: Command): void {
         console.log(`Hydrated ${result.postsHydrated} post${result.postsHydrated === 1 ? "" : "s"}.`);
         console.log(`Stop reason: ${result.stopReason}`);
         console.log(`Last sync: ${new Date(result.lastSyncAt).toLocaleString()}`);
+        console.log(`Request cost this sync: $${getSessionCost().total.toFixed(2)}`);
       } catch (err) {
         console.error(`Error: ${err instanceof Error ? err.message : err}`);
         process.exit(1);
