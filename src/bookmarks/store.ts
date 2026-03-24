@@ -254,6 +254,40 @@ export class BookmarkStore {
       create index if not exists idx_referenced_posts_post_id on referenced_posts(post_id);
       create index if not exists idx_referenced_posts_ref_id on referenced_posts(referenced_post_id);
     `);
+
+    this.ensureReferencedPostsSchema();
+  }
+
+  private ensureReferencedPostsSchema(): void {
+    const foreignKeys = this.db
+      .prepare("pragma foreign_key_list(referenced_posts)")
+      .all() as Array<{ from?: string }>;
+
+    const hasReferencedPostForeignKey = foreignKeys.some(
+      (row) => row.from === "referenced_post_id",
+    );
+    if (!hasReferencedPostForeignKey) {
+      return;
+    }
+
+    this.db.exec(`
+      create table referenced_posts_v2 (
+        post_id text not null references posts(id) on delete cascade,
+        referenced_post_id text not null,
+        reference_type text not null default '',
+        primary key (post_id, referenced_post_id, reference_type)
+      );
+
+      insert or ignore into referenced_posts_v2(post_id, referenced_post_id, reference_type)
+      select post_id, referenced_post_id, reference_type
+      from referenced_posts;
+
+      drop table referenced_posts;
+      alter table referenced_posts_v2 rename to referenced_posts;
+
+      create index if not exists idx_referenced_posts_post_id on referenced_posts(post_id);
+      create index if not exists idx_referenced_posts_ref_id on referenced_posts(referenced_post_id);
+    `);
   }
 
   getState(scope: string): string {
