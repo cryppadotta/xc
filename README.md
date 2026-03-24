@@ -89,10 +89,20 @@ xc unhide 1234567890             # Unhide a reply
 ### Bookmarks
 
 ```bash
-xc bookmarks                     # List your bookmarks
+xc bookmarks remote              # List your bookmarks from X
+xc bookmarks local sync          # Sync the local bookmark cache (30d post window by default)
+xc bookmarks local sync --days 60
+xc bookmarks local list          # Browse cached bookmarks
+xc bookmarks local search "sqlite fts"
+xc bookmarks local show 1234567890
+xc bookmarks local status
+xc bookmarks local sql 'select count(*) from bookmark_posts'
 xc bookmark 1234567890           # Bookmark a post
 xc unbookmark 1234567890         # Remove bookmark
 ```
+
+`xc bookmarks local ...` reads from a per-account SQLite cache under `~/.xc/bookmarks/` (or `$XC_CONFIG_DIR/bookmarks/`).
+Sync uses a cheap bookmark-enumeration pass plus a richer full-text hydration pass, so later syncs avoid re-fetching article bodies, long-post text, and referenced-post text that are already cached.
 
 ### Blocks & Mutes
 

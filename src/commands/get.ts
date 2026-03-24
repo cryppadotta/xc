@@ -2,20 +2,11 @@ import { Command } from "commander";
 import { getClient } from "../lib/api.js";
 import { outputJson } from "../lib/cost.js";
 import { buildUserMap, formatTweet } from "../lib/format.js";
+import { parsePostId } from "../lib/post-id.js";
 
 const TWEET_FIELDS = ["created_at", "public_metrics", "author_id", "article", "note_tweet"];
 const EXPANSIONS = ["author_id"];
 const USER_FIELDS = ["name", "username"];
-
-/**
- * Extract a post ID from a string that may be an ID or a full x.com/twitter.com URL.
- */
-function parsePostId(input: string): string {
-  const urlMatch = input.match(
-    /(?:twitter\.com|x\.com)\/\w+\/status\/(\d+)/,
-  );
-  return urlMatch ? urlMatch[1] : input;
-}
 
 export function registerGetCommand(program: Command): void {
   program

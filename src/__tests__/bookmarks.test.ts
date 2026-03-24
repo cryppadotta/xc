@@ -1,12 +1,12 @@
 /**
- * Tests for bookmarks commands with mocked SDK client.
+ * Tests for bookmark command wiring.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Command } from "commander";
 import {
-  registerBookmarksCommand,
   registerBookmarkCommand,
+  registerBookmarksCommand,
   registerUnbookmarkCommand,
 } from "../commands/bookmarks.js";
 
@@ -16,7 +16,6 @@ vi.mock("../lib/api.js", () => ({
 
 vi.mock("../lib/resolve.js", () => ({
   resolveAuthenticatedUserId: vi.fn(),
-  resolveUserId: vi.fn(),
 }));
 
 vi.mock("../lib/cost.js", () => ({
@@ -25,6 +24,7 @@ vi.mock("../lib/cost.js", () => ({
   estimateCost: vi.fn(() => 0),
   loadUsageLog: vi.fn(() => []),
   computeTodaySpend: vi.fn(() => 0),
+  outputJson: vi.fn(),
 }));
 
 vi.mock("../lib/budget.js", () => ({
@@ -32,10 +32,25 @@ vi.mock("../lib/budget.js", () => ({
   loadBudget: vi.fn(() => ({ action: "warn" })),
 }));
 
+vi.mock("../bookmarks/sync.js", () => ({
+  syncLocalBookmarks: vi.fn(),
+  cacheBookmarkedPosts: vi.fn(),
+}));
+
+vi.mock("../bookmarks/store.js", () => ({
+  BookmarkStore: {
+    open: vi.fn(),
+    parseMetrics: vi.fn(() => ({})),
+    summarizeText: vi.fn((row: { fullText?: string; text?: string }) => row.fullText || row.text || ""),
+  },
+}));
+
 import { getClient } from "../lib/api.js";
 import { resolveAuthenticatedUserId } from "../lib/resolve.js";
+import { cacheBookmarkedPosts, syncLocalBookmarks } from "../bookmarks/sync.js";
+import { BookmarkStore } from "../bookmarks/store.js";
 
-describe("bookmarks command", () => {
+describe("bookmarks remote command", () => {
   let program: Command;
 
   beforeEach(() => {
@@ -45,7 +60,7 @@ describe("bookmarks command", () => {
     vi.clearAllMocks();
   });
 
-  it("lists bookmarks", async () => {
+  it("lists remote bookmarks", async () => {
     vi.mocked(resolveAuthenticatedUserId).mockResolvedValue("myid");
     const mockGetBookmarks = vi.fn().mockResolvedValue({
       data: [
@@ -66,12 +81,74 @@ describe("bookmarks command", () => {
     } as unknown as Awaited<ReturnType<typeof getClient>>);
 
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-    await program.parseAsync(["node", "xc", "bookmarks"]);
+    await program.parseAsync(["node", "xc", "bookmarks", "remote"]);
 
-    expect(mockGetBookmarks).toHaveBeenCalledWith("myid", expect.objectContaining({
-      maxResults: 20,
-    }));
+    expect(mockGetBookmarks).toHaveBeenCalledWith(
+      "myid",
+      expect.objectContaining({ maxResults: 20 }),
+    );
     expect(logSpy).toHaveBeenCalledWith("Bookmarks:\n");
+    logSpy.mockRestore();
+  });
+});
+
+describe("bookmarks local sync command", () => {
+  let program: Command;
+
+  beforeEach(() => {
+    program = new Command();
+    program.exitOverride();
+    registerBookmarksCommand(program);
+    vi.clearAllMocks();
+  });
+
+  it("runs local sync", async () => {
+    vi.mocked(syncLocalBookmarks).mockResolvedValue({
+      pagesFetched: 2,
+      bookmarksSeen: 150,
+      postsHydrated: 150,
+      stopReason: "cutoff",
+      lastSyncAt: "2026-03-23T00:00:00.000Z",
+      days: 30,
+    });
+
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    await program.parseAsync(["node", "xc", "bookmarks", "local", "sync"]);
+
+    expect(syncLocalBookmarks).toHaveBeenCalledWith({
+      accountName: undefined,
+      days: 30,
+      maxPages: 0,
+    });
+    expect(logSpy).toHaveBeenCalledWith(
+      "Synced 150 bookmarks in 2 pages (30d target window).",
+    );
+    logSpy.mockRestore();
+  });
+
+  it("prints local status", async () => {
+    vi.mocked(BookmarkStore.open).mockReturnValue({
+      getStatus: () => ({
+        dbPath: "/tmp/bookmarks.db",
+        bookmarkCount: 10,
+        postCount: 12,
+        userCount: 2,
+        mediaCount: 1,
+        fulltextCount: 8,
+        lastSyncAt: "2026-03-23T00:00:00.000Z",
+        lastSyncDays: 30,
+        oldestFulltextCreatedAt: "2026-02-20T00:00:00.000Z",
+        headWindow: ["a", "b"],
+        hasCompletedSync: true,
+      }),
+      close: () => {},
+    } as any);
+
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    await program.parseAsync(["node", "xc", "bookmarks", "local", "status"]);
+
+    expect(logSpy).toHaveBeenCalledWith("db=/tmp/bookmarks.db");
+    expect(logSpy).toHaveBeenCalledWith("bookmarks=10");
     logSpy.mockRestore();
   });
 });
@@ -86,7 +163,7 @@ describe("bookmark command", () => {
     vi.clearAllMocks();
   });
 
-  it("adds a bookmark", async () => {
+  it("adds a bookmark and updates the local cache", async () => {
     vi.mocked(resolveAuthenticatedUserId).mockResolvedValue("myid");
     const mockCreate = vi.fn().mockResolvedValue({ data: { bookmarked: true } });
 
@@ -98,6 +175,7 @@ describe("bookmark command", () => {
     await program.parseAsync(["node", "xc", "bookmark", "12345"]);
 
     expect(mockCreate).toHaveBeenCalledWith("myid", { tweetId: "12345" });
+    expect(cacheBookmarkedPosts).toHaveBeenCalledWith(["12345"], undefined);
     expect(logSpy).toHaveBeenCalledWith("Bookmarked post 12345");
     logSpy.mockRestore();
   });

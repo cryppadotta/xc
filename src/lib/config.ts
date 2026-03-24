@@ -22,6 +22,10 @@ export interface AuthCredential {
   clientId?: string;
   /** OAuth 2.0 client secret (confidential clients) */
   clientSecret?: string;
+  /** API Key (Consumer Key) for app-only bearer token */
+  apiKey?: string;
+  /** API Secret (Consumer Secret) for app-only bearer token */
+  apiSecret?: string;
 }
 
 export interface AccountConfig {
@@ -49,6 +53,10 @@ const LEGACY_CONFIG_DIR = path.join(
 const CONFIG_FILE = path.join(CONFIG_DIR, "config.json");
 const LEGACY_CONFIG_FILE = path.join(LEGACY_CONFIG_DIR, "config.json");
 
+function sanitizeAccountName(name: string): string {
+  return name.replace(/[^a-zA-Z0-9._-]/g, "_");
+}
+
 /** Return the xc data/config directory (~/.xc/). */
 export function getConfigDir(): string {
   return CONFIG_DIR;
@@ -56,6 +64,16 @@ export function getConfigDir(): string {
 
 export function getConfigPath(): string {
   return CONFIG_FILE;
+}
+
+export function getBookmarkDir(): string {
+  return path.join(CONFIG_DIR, "bookmarks");
+}
+
+export function getBookmarkDbPath(accountName?: string): string {
+  const config = loadConfig();
+  const account = sanitizeAccountName(accountName ?? config.defaultAccount);
+  return path.join(getBookmarkDir(), `${account}.db`);
 }
 
 export function ensureConfigDir(): void {

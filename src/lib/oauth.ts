@@ -152,6 +152,37 @@ export async function runOAuthFlow(params: {
 }
 
 /**
+ * Fetch an app-only bearer token via the OAuth2 client credentials grant.
+ * Uses the v1.1-style endpoint with API Key/Secret (Consumer Key/Secret).
+ * This is the standard "Application-Only" auth for read endpoints.
+ */
+export async function fetchAppBearerToken(
+  apiKey: string,
+  apiSecret: string,
+): Promise<string> {
+  const credentials = Buffer.from(`${apiKey}:${apiSecret}`).toString("base64");
+
+  const res = await fetch("https://api.x.com/oauth2/token", {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${credentials}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: "grant_type=client_credentials",
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      `Failed to fetch app bearer token (${res.status}): ${text}`,
+    );
+  }
+
+  const data = (await res.json()) as { access_token: string; token_type: string };
+  return data.access_token;
+}
+
+/**
  * Refresh an expired access token using the SDK OAuth2 handler.
  */
 export async function refreshAccessToken(params: {

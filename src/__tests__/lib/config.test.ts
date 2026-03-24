@@ -57,6 +57,12 @@ describe("getConfigDir / getConfigPath", () => {
   it("config path is config.json inside config dir", () => {
     expect(config.getConfigPath()).toBe(path.join(tmpDir, "config.json"));
   });
+
+  it("bookmark db path is inside the bookmark dir", () => {
+    expect(config.getBookmarkDbPath()).toBe(
+      path.join(tmpDir, "bookmarks", "default.db"),
+    );
+  });
 });
 
 describe("ensureConfigDir", () => {

@@ -8,7 +8,7 @@ import {
   setAccount,
   setDefaultAccount,
 } from "../lib/config.js";
-import { runOAuthFlow } from "../lib/oauth.js";
+import { runOAuthFlow, fetchAppBearerToken } from "../lib/oauth.js";
 
 export function registerAuthCommand(program: Command): void {
   const auth = program.command("auth").description("Manage authentication");
@@ -20,6 +20,8 @@ export function registerAuthCommand(program: Command): void {
     .option("--account <name>", "Account name", "default")
     .option("--client-id <id>", "OAuth 2.0 Client ID (or set XC_CLIENT_ID)")
     .option("--client-secret <secret>", "OAuth 2.0 Client Secret (or set XC_CLIENT_SECRET)")
+    .option("--api-key <key>", "API Key / Consumer Key for app bearer token (or set XC_API_KEY)")
+    .option("--api-secret <secret>", "API Secret / Consumer Secret for app bearer token (or set XC_API_SECRET)")
     .option("--port <port>", "Local callback port", "3391")
     .action(async (opts) => {
       const clientId = opts.clientId ?? process.env.XC_CLIENT_ID;
@@ -50,6 +52,21 @@ export function registerAuthCommand(program: Command): void {
           },
         });
 
+        // Fetch app bearer token if API Key/Secret are available
+        const apiKey = opts.apiKey ?? process.env.XC_API_KEY;
+        const apiSecret = opts.apiSecret ?? process.env.XC_API_SECRET;
+        let bearerToken: string | undefined;
+        if (apiKey && apiSecret) {
+          try {
+            bearerToken = await fetchAppBearerToken(apiKey, apiSecret);
+            console.log("✓ Fetched app bearer token");
+          } catch (err) {
+            console.error(
+              `Warning: Could not fetch app bearer token: ${err instanceof Error ? err.message : err}`,
+            );
+          }
+        }
+
         // Save credentials
         setAccount(opts.account, {
           name: opts.account,
@@ -60,12 +77,18 @@ export function registerAuthCommand(program: Command): void {
             expiresAt: result.expiresAt,
             clientId,
             ...(clientSecret ? { clientSecret } : {}),
+            ...(apiKey ? { apiKey } : {}),
+            ...(apiSecret ? { apiSecret } : {}),
+            ...(bearerToken ? { bearerToken } : {}),
           },
         });
 
         // Fetch user info using SDK client directly with new token
         try {
-          const client = new Client({ accessToken: result.accessToken });
+          const client = new Client({
+            accessToken: result.accessToken,
+            ...(bearerToken ? { bearerToken } : {}),
+          });
           const me = await client.users.getMe({ userFields: ["username"] });
 
           if (me.data) {
@@ -167,9 +190,17 @@ export function registerAuthCommand(program: Command): void {
           }
         }
 
+        const bearer =
+          auth.type === "oauth2" && auth.bearerToken
+            ? "✓ app bearer token"
+            : auth.type === "oauth2"
+              ? "✗ no app bearer token"
+              : "";
+
         console.log(`  ${name}${marker}`);
         console.log(`    User: ${username}`);
         console.log(`    Auth: ${type} — ${status}`);
+        if (bearer) console.log(`    Bearer: ${bearer}`);
         console.log("");
       }
     });

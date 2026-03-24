@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 
+import { createRequire } from "node:module";
 import { Command } from "commander";
+
+const require = createRequire(import.meta.url);
+const { version } = require("../package.json");
 import { registerAuthCommand } from "./commands/auth.js";
 import { registerBlockCommand, registerUnblockCommand, registerBlockedCommand } from "./commands/block.js";
 import {
@@ -48,7 +52,7 @@ const program = new Command();
 program
   .name("xc")
   .description("CLI client for the X API v2")
-  .version("0.1.0")
+  .version(version)
   .option("--quiet", "Suppress cost footer");
 
 registerAuthCommand(program);

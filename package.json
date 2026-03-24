@@ -34,12 +34,14 @@
     "access": "public"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.0.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   },
   "dependencies": {
     "@xdevplatform/xdk": "^0.4.0",
+    "better-sqlite3": "^12.8.0",
     "commander": "^13.0.0",
     "open": "^10.0.0"
   }

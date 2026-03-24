@@ -105,10 +105,20 @@ export async function getClient(accountName?: string): Promise<Client> {
       const name = accountName ?? "default";
       setAccount(name, { ...account, auth: updatedAuth });
 
-      return wrapClient(new Client({ accessToken: result.accessToken }));
+      return wrapClient(
+        new Client({
+          accessToken: result.accessToken,
+          ...(auth.bearerToken ? { bearerToken: auth.bearerToken } : {}),
+        }),
+      );
     }
 
-    return wrapClient(new Client({ accessToken: auth.accessToken }));
+    return wrapClient(
+      new Client({
+        accessToken: auth.accessToken,
+        ...(auth.bearerToken ? { bearerToken: auth.bearerToken } : {}),
+      }),
+    );
   }
 
   throw new Error(`Unknown auth type: ${auth.type}`);
