@@ -1,6 +1,6 @@
 ---
 name: xc
-description: X/Twitter CLI using the official API v2 with OAuth 2.0. Read, search, post, manage engagement, blocks, mutes, DMs, bookmarks, lists, followers, trends, and track API costs.
+description: X/Twitter CLI using the official API v2 with OAuth 2.0. Read, search, post, manage engagement, blocks, mutes, DMs, bookmarks, bookmark sync/search, lists, followers, trends, and track API costs.
 homepage: https://github.com/cryppadotta/xc
 metadata: {"clawdbot":{"emoji":"𝕏","requires":{"bins":["xc"]}}}
 ---
@@ -86,9 +86,21 @@ xc like <post-id>                  # Like a post
 xc unlike <post-id>                # Unlike a post
 xc repost <post-id>                # Repost a post
 xc unrepost <post-id>              # Undo a repost
-xc bookmark <post-id>              # Bookmark a post
-xc unbookmark <post-id>            # Remove bookmark
-xc bookmarks                      # List bookmarks
+xc bookmark <post-id-or-url>       # Bookmark a post and hydrate it into the local cache
+xc unbookmark <post-id-or-url>     # Remove bookmark from X (cache entry stays local)
+
+# Bookmarks
+xc bookmarks remote                # List bookmarks directly from X
+xc bookmarks remote --limit 50     # Larger remote page
+xc bookmarks local sync            # Sync local bookmark cache (default 30-day post window)
+xc bookmarks local sync --days 60  # Extend coverage window
+xc bookmarks local sync --max-pages 3
+xc bookmarks local list            # Browse cached bookmarks
+xc bookmarks local list --author dotta --has-link
+xc bookmarks local search "agent memory"
+xc bookmarks local show <post-id-or-url>
+xc bookmarks local status          # Local cache counts, sync window, oldest cached post
+xc bookmarks local sql 'select count(*) from bookmark_posts'
 
 # Engagement lookups
 xc quotes <post-id>                # List quote tweets of a post
@@ -175,6 +187,11 @@ xc usage                           # X API usage stats (Bearer Token only)
 - **Paid tier features**: DMs and media upload require a paid X API plan (pay-per-use or Basic+). Free tier returns 403.
 - **Bearer Token features**: `stream` and `usage` commands require app-only Bearer Token auth (`xc auth token <TOKEN>`), not OAuth 2.0.
 - **Search minimum**: X API returns a minimum of 10 results regardless of `-n` value.
+- **Local bookmark cache**: `xc bookmarks local ...` reads from per-account SQLite at `~/.xc/bookmarks/<account>.db` (or `$XC_CONFIG_DIR/bookmarks/<account>.db`).
+- **Bookmark sync strategy**: local sync uses a cheap bookmark enumeration pass plus batched post hydration. Re-syncs skip already hydrated posts where possible.
+- **Bookmark sync cost**: `xc bookmarks local sync` prints `Request cost this sync: $...` for the current run.
+- **Bookmark sync coverage**: `--days` refers to bookmarked posts' `created_at`, not when you bookmarked them. X does not expose `bookmarked_at`.
+- **Bookmark API caveat**: X's main bookmark endpoint may expose fewer bookmarks than expected and may not paginate even when product UI suggests older bookmarks exist. `xc bookmarks remote` and `xc bookmarks local sync` can only ingest what the API returns.
 
 ## Posting Guidelines
 
@@ -206,4 +223,64 @@ xc quotes <post-id>
 # Manage your block/mute lists
 xc blocked --json
 xc muted --json
+
+# Build a local bookmark archive and search it offline
+xc bookmarks local sync --days 30
+xc bookmarks local search "paperclip agents"
+xc bookmarks local list --has-link --has-media
+xc bookmarks local show https://x.com/user/status/123
+
+# Inspect local bookmark storage directly
+xc bookmarks local status
+xc bookmarks local sql 'select count(*) from bookmark_posts'
 ```
+
+## Bookmark Workflow
+
+Use this when the user wants bookmark search, bookmark archive stats, or cheap repeated access after an initial sync.
+
+### Remote vs local
+
+- `xc bookmarks remote` reads live from X and costs API calls every time.
+- `xc bookmarks local ...` reads from the local SQLite cache after sync and is effectively free after ingestion.
+
+### Recommended flow
+
+```bash
+xc bookmarks local status
+xc bookmarks local sync --days 30
+xc bookmarks local search "query"
+xc bookmarks local show <post-id-or-url>
+```
+
+### Local bookmark commands
+
+```bash
+xc bookmarks local sync [--days N] [--max-pages N] [--account NAME] [--json]
+xc bookmarks local status [--account NAME] [--json]
+xc bookmarks local list [--author QUERY] [--days N|--since RFC3339] [--before RFC3339] [--has-link] [--has-media] [-n N] [--account NAME] [--json]
+xc bookmarks local search <query> [--author QUERY] [--days N|--since RFC3339] [--before RFC3339] [--has-link] [--has-media] [-n N] [--account NAME] [--json]
+xc bookmarks local show <post-id-or-url> [--account NAME] [--json]
+xc bookmarks local sql '<read-only sql>' [--account NAME] [--json]
+```
+
+### What gets cached
+
+- bookmark post text
+- long-post text (`note_tweet`) when available
+- article title/body when available
+- public metrics
+- links, media metadata, and some referenced/source posts
+
+### Good uses
+
+- search bookmarks without paying for repeated API reads
+- inspect article full text from already synced bookmarks
+- get local stats with `status` or `sql`
+- browse by author, media, or link presence
+
+### Limitations
+
+- local cache only contains what X's official bookmark APIs return
+- `unbookmark` removes from X but does not purge the cached local archive row
+- `sql` is read-only by design

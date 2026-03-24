@@ -1,17 +1,22 @@
 {
   "name": "@dotta/xc",
-  "version": "0.1.0",
-  "description": "CLI client for the X API v2",
+  "version": "0.2.0",
+  "description": "CLI client for the X API v2 with local bookmark sync and search",
+  "homepage": "https://github.com/cryppadotta/xc#readme",
+  "bugs": {
+    "url": "https://github.com/cryppadotta/xc/issues"
+  },
   "type": "module",
   "license": "MIT",
   "bin": {
     "xc": "./dist/cli.js"
   },
   "files": [
-    "dist/"
+    "dist/",
+    "skills/"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "rm -rf dist && tsc",
     "dev": "tsx src/cli.ts",
     "lint": "tsc --noEmit",
     "test": "vitest run",
@@ -21,7 +26,9 @@
     "x",
     "twitter",
     "cli",
-    "api"
+    "api",
+    "bookmarks",
+    "sqlite"
   ],
   "engines": {
     "node": ">=18"

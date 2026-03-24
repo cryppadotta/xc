@@ -1,6 +1,6 @@
 # xc — X API CLI
 
-CLI client for the [X API v2](https://docs.x.com/x-api/introduction). Pay-per-use, no cookie scraping. Built on the official [@xdevplatform/xdk](https://github.com/xdevplatform/xdk) SDK with OAuth 2.0 PKCE.
+CLI client for the [X API v2](https://docs.x.com/x-api/introduction). Pay-per-use, no cookie scraping. Built on the official [@xdevplatform/xdk](https://github.com/xdevplatform/xdk) SDK with OAuth 2.0 PKCE, plus a local SQLite bookmark cache for offline search after sync.
 
 ## Install
 
@@ -12,7 +12,7 @@ Requires Node.js >= 18.
 
 ## Agent Skill
 
-xc includes an [agent skill](skills/xc-cli/SKILL.md) so your agent can use `xc` on your behalf.
+xc includes an [agent skill](https://github.com/cryppadotta/xc/blob/main/skills/xc-cli/SKILL.md) so your agent can use `xc` on your behalf.
 
 ```bash
 npx skills add https://github.com/cryppadotta/xc --skill xc-cli
@@ -103,6 +103,12 @@ xc unbookmark 1234567890         # Remove bookmark
 
 `xc bookmarks local ...` reads from a per-account SQLite cache under `~/.xc/bookmarks/` (or `$XC_CONFIG_DIR/bookmarks/`).
 Sync uses a cheap bookmark-enumeration pass plus a richer full-text hydration pass, so later syncs avoid re-fetching article bodies, long-post text, and referenced-post text that are already cached.
+Each `xc bookmarks local sync` run also prints `Request cost this sync: $...` so you can see the cost of that specific sync, not just the rolling footer.
+
+Notes:
+
+- `--days` refers to bookmarked posts' `created_at`, not when you bookmarked them. X does not expose `bookmarked_at`.
+- local sync can only ingest what X's official bookmark APIs return. If the API stops early or does not paginate, `xc` cannot manufacture older bookmarks that the server does not expose.
 
 ### Blocks & Mutes
 
@@ -248,6 +254,8 @@ xc cost log                      # Raw request log (last 20)
 xc cost log --limit 50           # More entries
 xc cost log --json               # Raw JSON log
 ```
+
+Bookmark sync commands also print a per-run line like `Request cost this sync: $0.01` so you can separate one sync's spend from the rolling 1h/24h/7d/30d footer totals.
 
 Suppress the per-command cost footer with `--quiet`:
 
