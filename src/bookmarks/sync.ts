@@ -410,8 +410,8 @@ export async function syncLocalBookmarks(
       for (const id of primaryIds) {
         if (nextHeadWindow.length < 20) nextHeadWindow.push(id);
       }
-      for (const post of snapshot.posts) {
-        queuedHydrationIds.add(post.id);
+      for (const id of primaryIds) {
+        queuedHydrationIds.add(id);
       }
 
       pagesFetched += 1;

@@ -56,6 +56,14 @@ describe("syncLocalBookmarks", () => {
         ],
         includes: {
           users: [{ id: "u1", username: "alice", name: "Alice" }],
+          tweets: [
+            {
+              id: "050",
+              authorId: "u1",
+              createdAt: "2026-03-20T00:00:00.000Z",
+              text: "referenced source",
+            },
+          ],
         },
         meta: { nextToken: "p2" },
       })
@@ -140,6 +148,7 @@ describe("syncLocalBookmarks", () => {
       expect(status.lastSyncDays).toBe(30);
       expect(status.headWindow).toEqual(["100"]);
       expect(status.bookmarkCount).toBe(2);
+      expect(status.postCount).toBe(3);
     } finally {
       store.close();
     }

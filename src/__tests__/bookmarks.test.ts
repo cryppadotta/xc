@@ -24,6 +24,7 @@ vi.mock("../lib/cost.js", () => ({
   estimateCost: vi.fn(() => 0),
   loadUsageLog: vi.fn(() => []),
   computeTodaySpend: vi.fn(() => 0),
+  getSessionCost: vi.fn(() => ({ endpoints: [], total: 0 })),
   outputJson: vi.fn(),
 }));
 
