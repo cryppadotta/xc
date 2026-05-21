@@ -4,3 +4,5 @@ dist/
 .env
 .worktrees
 .pebbles/
+.DS_Store
+bookmarks/
