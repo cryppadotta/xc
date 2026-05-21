@@ -2,9 +2,10 @@
  * Bookmarks commands: remote listing, local cache sync/search, add, and remove.
  */
 
+import fs from "node:fs";
 import { Command } from "commander";
 import { formatBookmarkDetail, formatBookmarkList } from "../bookmarks/format.js";
-import { BookmarkStore } from "../bookmarks/store.js";
+import { BookmarkStore, type BookmarkSnapshot, type StoredPostRecord, type StoredMediaRecord, type StoredLinkRecord, type StoredReferenceRecord, type StoredUserRecord } from "../bookmarks/store.js";
 import { cacheBookmarkedPosts, syncLocalBookmarks } from "../bookmarks/sync.js";
 import { getClient } from "../lib/api.js";
 import { getSessionCost, outputJson } from "../lib/cost.js";
@@ -347,6 +348,179 @@ export function registerBookmarksCommand(program: Command): void {
         process.exit(1);
       }
     });
+
+  local
+    .command("import <file>")
+    .description("Import bookmarks from a JSON file into the local cache")
+    .option("--account <name>", "Account to use")
+    .option("--dry-run", "Validate the file without importing")
+    .action((file: string, opts) => {
+      try {
+        const raw = fs.readFileSync(file, "utf-8");
+        const data = JSON.parse(raw) as unknown;
+        const snapshot = parseImportFile(data);
+
+        if (opts.dryRun) {
+          console.log(`Validated ${snapshot.posts.length} posts, ${snapshot.users.length} users, ${snapshot.bookmarkedIds.length} bookmarked IDs.`);
+          return;
+        }
+
+        withLocalStore(opts.account, (store) => {
+          store.upsertSnapshot(snapshot);
+          console.log(`Imported ${snapshot.posts.length} posts, ${snapshot.users.length} users, ${snapshot.bookmarkedIds.length} bookmarks.`);
+        });
+      } catch (err) {
+        console.error(`Error: ${err instanceof Error ? err.message : err}`);
+        process.exit(1);
+      }
+    });
+}
+
+function normalizeImportText(text: unknown): string {
+  return typeof text === "string" ? text.replace(/\r\n/g, "\n").trim() : "";
+}
+
+function normalizeJoinedImportText(parts: string[]): string {
+  return parts.filter(Boolean).join("\n\n");
+}
+
+function readStr(obj: Record<string, unknown>, ...keys: string[]): string {
+  for (const key of keys) {
+    const val = obj[key];
+    if (typeof val === "string") return val;
+  }
+  return "";
+}
+
+function parseImportFile(data: unknown): BookmarkSnapshot {
+  if (!data || typeof data !== "object") {
+    throw new Error("Import file must be a JSON object");
+  }
+
+  const root = data as Record<string, unknown>;
+  const now = new Date().toISOString();
+  const syncRunId = `import:${now}`;
+
+  const rawBookmarks = root.bookmarks;
+  if (!Array.isArray(rawBookmarks)) {
+    throw new Error('Import file must have a "bookmarks" array');
+  }
+
+  const posts: StoredPostRecord[] = [];
+  const users: StoredUserRecord[] = [];
+  const bookmarkedIds: string[] = [];
+  const seenUsers = new Set<string>();
+
+  for (const bm of rawBookmarks) {
+    if (!bm || typeof bm !== "object") continue;
+    const item = bm as Record<string, unknown>;
+
+    const id = readStr(item, "id", "post_id", "tweet_id");
+    if (!id) {
+      throw new Error("Each bookmark must have an id (or post_id / tweet_id)");
+    }
+
+    const text = normalizeImportText(item.text);
+    const fullText = normalizeImportText(item.full_text ?? item.fullText ?? item.text);
+    const articleTitle = normalizeImportText(item.article_title ?? item.articleTitle);
+    const articlePlainText = normalizeImportText(item.article_plain_text ?? item.articlePlainText);
+    const normalizedText = normalizeJoinedImportText([text, fullText, articleTitle, articlePlainText]);
+
+    const authorId = readStr(item, "author_id", "authorId");
+    const authorUsername = readStr(item, "author_username", "authorUsername", "username");
+    const authorName = readStr(item, "author_name", "authorName", "name");
+
+    if (authorId && !seenUsers.has(authorId)) {
+      seenUsers.add(authorId);
+      users.push({
+        id: authorId,
+        username: authorUsername,
+        name: authorName,
+        rawJson: "{}",
+      });
+    }
+
+    const metricsRaw = item.public_metrics ?? item.publicMetrics ?? item.metrics;
+    const publicMetricsJson = metricsRaw && typeof metricsRaw === "object"
+      ? JSON.stringify(metricsRaw)
+      : "{}";
+
+    const media: StoredMediaRecord[] = [];
+    const rawMedia = item.media;
+    if (Array.isArray(rawMedia)) {
+      for (const m of rawMedia) {
+        if (!m || typeof m !== "object") continue;
+        const mr = m as Record<string, unknown>;
+        media.push({
+          mediaKey: readStr(mr, "media_key", "mediaKey", "key") || `${id}_${media.length}`,
+          type: readStr(mr, "type"),
+          url: readStr(mr, "url"),
+          previewImageUrl: readStr(mr, "preview_image_url", "previewImageUrl"),
+          altText: readStr(mr, "alt_text", "altText"),
+          rawJson: "{}",
+        });
+      }
+    }
+
+    const links: StoredLinkRecord[] = [];
+    const rawLinks = item.links ?? item.urls;
+    if (Array.isArray(rawLinks)) {
+      for (const l of rawLinks) {
+        if (!l || typeof l !== "object") continue;
+        const lr = l as Record<string, unknown>;
+        const expandedUrl = readStr(lr, "expanded_url", "expandedUrl", "url");
+        links.push({
+          url: readStr(lr, "url", "short_url") || expandedUrl,
+          expandedUrl,
+          displayUrl: readStr(lr, "display_url", "displayUrl") || expandedUrl,
+        });
+      }
+    }
+
+    const references: StoredReferenceRecord[] = [];
+    const rawRefs = item.referenced_posts ?? item.references;
+    if (Array.isArray(rawRefs)) {
+      for (const r of rawRefs) {
+        if (!r || typeof r !== "object") continue;
+        const rr = r as Record<string, unknown>;
+        const refId = readStr(rr, "id", "referenced_post_id", "referencedPostId");
+        if (refId) {
+          references.push({
+            referencedPostId: refId,
+            referenceType: readStr(rr, "type", "reference_type", "referenceType"),
+          });
+        }
+      }
+    }
+
+    const createdAt = readStr(item, "created_at", "createdAt");
+
+    posts.push({
+      id,
+      authorId,
+      createdAt,
+      conversationId: readStr(item, "conversation_id", "conversationId") || id,
+      lang: readStr(item, "lang"),
+      text,
+      fullText,
+      articleTitle,
+      articlePlainText,
+      normalizedText,
+      publicMetricsJson,
+      hydrationLevel: "full",
+      basicSyncedAt: now,
+      fulltextSyncedAt: now,
+      metricsSyncedAt: now,
+      rawJson: JSON.stringify(item),
+      media,
+      links,
+      references,
+    });
+
+    bookmarkedIds.push(id);
+  }
+
+  return { posts, users, bookmarkedIds, syncRunId, syncedAt: now };
 }
 
 export function registerBookmarkCommand(program: Command): void {
