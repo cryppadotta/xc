@@ -24,6 +24,10 @@ vi.mock("../../lib/budget.js", () => ({
   checkBudget: vi.fn(),
 }));
 
+vi.mock("../../lib/rate-limit.js", () => ({
+  protectClient: vi.fn((client) => client),
+}));
+
 // Mock the XDK Client constructor — return a plain object with stub namespaces
 vi.mock("@xdevplatform/xdk", () => ({
   Client: vi.fn().mockImplementation((opts: Record<string, unknown>) => ({
@@ -210,6 +214,14 @@ describe("getClient", () => {
 });
 
 describe("wrapped client proxy", () => {
+  it("does not log rejected API calls as successful paid reads", async () => {
+    vi.mocked(getAccount).mockReturnValue({ name: "test", auth: { type: "bearer", bearerToken: "tok" } });
+    const client = await getClient();
+    const sdk = vi.mocked(Client).mock.results.at(-1)!.value;
+    sdk.users.getMe.mockRejectedValueOnce(new Error("HTTP 429"));
+    await expect(client.users.getMe()).rejects.toThrow("429");
+    expect(logApiCall).not.toHaveBeenCalled();
+  });
   it("checks budget and logs API calls on method invocation", async () => {
     vi.mocked(getAccount).mockReturnValue({
       name: "test",

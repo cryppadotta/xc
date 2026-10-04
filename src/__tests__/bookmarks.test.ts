@@ -120,6 +120,10 @@ describe("bookmarks local sync command", () => {
       accountName: undefined,
       days: 30,
       maxPages: 0,
+      full: undefined,
+      restart: undefined,
+      pageSize: 10,
+      wait: true,
     });
     expect(logSpy).toHaveBeenCalledWith(
       "Synced 150 bookmarks in 2 pages (30d target window).",

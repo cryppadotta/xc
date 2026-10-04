@@ -1,6 +1,6 @@
 {
   "name": "@dotta/xc",
-  "version": "0.2.0",
+  "version": "0.2.1-coverage.0",
   "description": "CLI client for the X API v2 with local bookmark sync and search",
   "homepage": "https://github.com/cryppadotta/xc#readme",
   "bugs": {
