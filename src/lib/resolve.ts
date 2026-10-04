@@ -4,6 +4,7 @@
  */
 
 import { getClient } from "./api.js";
+import type { Client } from "@xdevplatform/xdk";
 import { getAccount, loadConfig, saveConfig } from "./config.js";
 
 /**
@@ -11,6 +12,7 @@ import { getAccount, loadConfig, saveConfig } from "./config.js";
  */
 export async function resolveAuthenticatedUserId(
   accountName?: string,
+  existingClient?: Client,
 ): Promise<string> {
   const account = getAccount(accountName);
   if (account?.userId) {
@@ -18,7 +20,7 @@ export async function resolveAuthenticatedUserId(
   }
 
   // Fetch via SDK and cache the result
-  const client = await getClient(accountName);
+  const client = existingClient ?? await getClient(accountName);
   const result = await client.users.getMe({ userFields: ["id"] });
   const userId = result.data?.id;
   if (!userId) {

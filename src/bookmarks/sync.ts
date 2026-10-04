@@ -1,4 +1,5 @@
 import type { Client } from "@xdevplatform/xdk";
+import fs from "node:fs";
 import {
   BookmarkStore,
   type BookmarkSnapshot,
@@ -11,18 +12,8 @@ import {
 } from "./store.js";
 import { getClient } from "../lib/api.js";
 import { resolveAuthenticatedUserId } from "../lib/resolve.js";
+import { rateLimitRetryAt } from "../lib/rate-limit.js";
 
-const DAY_MS = 86_400_000;
-const BASIC_TWEET_FIELDS = [
-  "author_id",
-  "attachments",
-  "conversation_id",
-  "created_at",
-  "entities",
-  "lang",
-  "public_metrics",
-  "referenced_tweets",
-];
 const HYDRATE_TWEET_FIELDS = [
   "article",
   "attachments",
@@ -50,15 +41,57 @@ export interface LocalSyncOptions {
   accountName?: string;
   days?: number;
   maxPages?: number;
+  full?: boolean;
+  restart?: boolean;
+  pageSize?: number;
+  wait?: boolean;
 }
 
 export interface LocalSyncResult {
   pagesFetched: number;
   bookmarksSeen: number;
   postsHydrated: number;
-  stopReason: "head_window" | "cutoff" | "exhausted" | "max_pages";
+  stopReason: "head_window" | "exhausted" | "max_pages" | "rate_limit";
   lastSyncAt: string;
   days: number;
+  mode: "full" | "incremental";
+  coverageComplete: boolean;
+  fullScanCompletedAt: string;
+  resumed: boolean;
+  retryAt?: string | null;
+}
+
+interface SyncCheckpoint {
+  mode: "full" | "incremental";
+  pageSize: number;
+  nextToken?: string;
+  enumerationComplete: boolean;
+  stopReason?: "head_window" | "exhausted";
+  headWindow: string[];
+  previousHead: string[];
+  seenIds: string[];
+  seenTokens: string[];
+  pendingHydration: string[];
+}
+
+function acquireSyncLock(dbPath: string): () => void {
+  const lock = `${dbPath}.sync.lock`;
+  try {
+    fs.writeFileSync(lock, String(process.pid), { flag: "wx", mode: 0o600 });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    const pid = Number(fs.readFileSync(lock, "utf8"));
+    if (!Number.isInteger(pid) || pid <= 0) throw new Error(`Invalid sync lock: ${lock}`);
+    try {
+      process.kill(pid, 0);
+    } catch (probeError) {
+      if ((probeError as NodeJS.ErrnoException).code !== "ESRCH") throw probeError;
+      fs.unlinkSync(lock);
+      return acquireSyncLock(dbPath);
+    }
+    throw new Error("Another bookmark sync is running for this account.");
+  }
+  return () => fs.unlinkSync(lock);
 }
 
 function asRecord(value: unknown): UnknownRecord {
@@ -296,12 +329,6 @@ function getNextPaginationToken(result: UnknownRecord): string {
   return readString(meta, "nextToken", "next_token");
 }
 
-function createdAtWithinDays(tweet: unknown, cutoffIso: string): boolean {
-  const item = asRecord(tweet);
-  const createdAt = readString(item, "createdAt", "created_at");
-  return !!createdAt && createdAt >= cutoffIso;
-}
-
 async function hydratePosts(
   client: Client,
   store: BookmarkStore,
@@ -326,17 +353,21 @@ async function hydratePosts(
       userFields: USER_FIELDS,
     });
     const primaryTweets = result.data ?? [];
+    const returnedIds = primaryTweets.map((tweet) => readString(asRecord(tweet), "id")).filter(Boolean);
     const snapshot = buildSnapshot(
       primaryTweets,
       asRecord(result.includes),
-      batch,
+      returnedIds,
       syncedAt,
       syncRunId,
       "full",
     );
     store.upsertSnapshot(snapshot);
 
-    hydratedCount += batch.length;
+    hydratedCount += returnedIds.length;
+    if (batch.some((id) => !returnedIds.includes(id))) {
+      throw new Error("X did not hydrate every requested post; incomplete work is saved for retry.");
+    }
     for (const post of snapshot.posts) {
       if (!post.createdAt) continue;
       if (!oldestCreatedAt || post.createdAt < oldestCreatedAt) {
@@ -348,118 +379,167 @@ async function hydratePosts(
   return { hydratedCount, oldestCreatedAt };
 }
 
-function buildCutoffIso(days: number): string {
-  return new Date(Date.now() - days * DAY_MS).toISOString();
-}
-
 export async function syncLocalBookmarks(
   opts: LocalSyncOptions = {},
 ): Promise<LocalSyncResult> {
-  const days = Math.max(1, opts.days ?? 30);
-  const maxPages = opts.maxPages && opts.maxPages > 0 ? opts.maxPages : 0;
-  const syncRunId = `sync:${Date.now()}`;
+  const days = opts.days ?? 30;
+  const pageSize = opts.pageSize ?? 10;
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 99) {
+    throw new Error("Page size must be between 1 and 99 (100 can suppress X's continuation token).");
+  }
+  if (!Number.isInteger(days) || days < 1) throw new Error("Days must be a positive integer.");
+  if (opts.maxPages !== undefined && (!Number.isInteger(opts.maxPages) || opts.maxPages < 0)) {
+    throw new Error("Maximum pages must be a non-negative integer.");
+  }
+  const maxPages = opts.maxPages ?? 0;
   const store = BookmarkStore.open(opts.accountName);
+  let unlock: (() => void) | undefined;
+  let pagesFetched = 0;
+  let bookmarksSeen = 0;
+  let postsHydrated = 0;
+  let checkpoint: SyncCheckpoint | undefined;
+  let resumed = false;
+  const syncRunId = `sync:${Date.now()}`;
+
+  const saveCheckpoint = () => store.setState("local:sync_checkpoint_v2", JSON.stringify(checkpoint));
+  const result = (
+    stopReason: LocalSyncResult["stopReason"],
+    retryAt?: number | null,
+  ): LocalSyncResult => ({
+    pagesFetched,
+    bookmarksSeen,
+    postsHydrated,
+    stopReason,
+    lastSyncAt: store.getLastSyncAt(),
+    days,
+    mode: checkpoint!.mode,
+    coverageComplete: store.getStatus().coverageComplete,
+    fullScanCompletedAt: store.getState("local:full_scan_completed_at_v2"),
+    resumed,
+    ...(retryAt === undefined ? {} : { retryAt: retryAt === null ? null : new Date(retryAt).toISOString() }),
+  });
 
   try {
-    const client = await getClient(opts.accountName);
-    const userId = await resolveAuthenticatedUserId(opts.accountName);
-    const cutoffIso = buildCutoffIso(days);
-    const previousDays = store.getLastSyncDays();
-    const headWindow = store.getHeadWindow();
-    const headSet = new Set(headWindow);
-    const canStopOnHead = previousDays >= days && headSet.size > 0;
+    unlock = acquireSyncLock(store.dbPath);
+    const saved = store.getState("local:sync_checkpoint_v2");
+    if (saved && !opts.restart) {
+      checkpoint = JSON.parse(saved) as SyncCheckpoint;
+      if (opts.full && checkpoint.mode !== "full") {
+        throw new Error("An incremental scan is pending. Finish it or use --full --restart.");
+      }
+      resumed = true;
+    } else {
+      const full = opts.full || opts.restart || !store.getState("local:full_scan_completed_at_v2");
+      checkpoint = {
+        mode: full ? "full" : "incremental",
+        pageSize,
+        enumerationComplete: false,
+        headWindow: [],
+        previousHead: full ? [] : store.getHeadWindow(),
+        seenIds: [],
+        seenTokens: [],
+        pendingHydration: [],
+      };
+      // Legacy last_sync_days / head_window never establish complete coverage.
+      saveCheckpoint();
+    }
 
-    let paginationToken: string | undefined;
-    let pagesFetched = 0;
-    let bookmarksSeen = 0;
-    let stopReason: LocalSyncResult["stopReason"] = "exhausted";
-    let stalePages = 0;
-    const queuedHydrationIds = new Set<string>();
-    const nextHeadWindow: string[] = [];
-
+    const client = await getClient(opts.accountName, { wait: opts.wait !== false });
+    const userId = await resolveAuthenticatedUserId(opts.accountName, client);
     while (true) {
-      if (maxPages > 0 && pagesFetched >= maxPages) {
-        stopReason = "max_pages";
-        break;
+      // A crash/rate limit after enumeration cannot orphan the hydration queue.
+      // Already-full posts are excluded, including batches committed before a crash.
+      if (checkpoint.pendingHydration.length > 0) {
+        const hydrated = await hydratePosts(client, store, checkpoint.pendingHydration, syncRunId);
+        postsHydrated += hydrated.hydratedCount;
+        checkpoint.pendingHydration = [];
+        if (hydrated.oldestCreatedAt) {
+          const oldest = store.getOldestFulltextCreatedAt();
+          if (!oldest || hydrated.oldestCreatedAt < oldest) {
+            store.setState("local:oldest_fulltext_created_at", hydrated.oldestCreatedAt);
+          }
+        }
+        saveCheckpoint();
       }
 
-      const syncedAt = new Date().toISOString();
-      const result = await client.users.getBookmarks(userId, {
-        maxResults: 100,
-        paginationToken,
-        tweetFields: BASIC_TWEET_FIELDS,
-        expansions: EXPANSIONS,
-        mediaFields: MEDIA_FIELDS,
-        userFields: USER_FIELDS,
-      });
+      if (checkpoint.enumerationComplete) {
+        const completedAt = new Date().toISOString();
+        if (checkpoint.stopReason === "exhausted") {
+          store.setState("local:full_scan_completed_at_v2", completedAt);
+          store.setState("local:last_full_scan_bookmark_count_v2", String(checkpoint.seenIds.length));
+        }
+        store.setHeadWindow(checkpoint.headWindow);
+        store.updateSyncMetadata(days, "");
+        store.setState("local:sync_checkpoint_v2", "");
+        return result(checkpoint.stopReason!);
+      }
+      if (maxPages > 0 && pagesFetched >= maxPages) return result("max_pages");
 
-      const primaryTweets = result.data ?? [];
-      const primaryIds = primaryTweets
-        .map((tweet) => readString(asRecord(tweet), "id"))
-        .filter(Boolean);
+      const syncedAt = new Date().toISOString();
+      // Enumeration requests only identity/date fields. Rich hydration is paid
+      // for once, only for posts that do not already have full cache records.
+      const response = await client.users.getBookmarks(userId, {
+        maxResults: checkpoint.pageSize,
+        paginationToken: checkpoint.nextToken,
+        tweetFields: ["created_at"],
+      });
+      if (readArray(asRecord(response), "errors").length > 0) {
+        throw new Error("X returned bookmark errors; coverage is incomplete and progress is saved.");
+      }
+      const primaryTweets = response.data ?? [];
+      const primaryIds = primaryTweets.map((tweet) => readString(asRecord(tweet), "id")).filter(Boolean);
+      const nextToken = getNextPaginationToken(asRecord(response));
+
+      // Some X responses silently truncate the head at large page sizes.
+      // Restart conservatively before trusting a single-page full scan.
+      if (!checkpoint.nextToken && !nextToken && primaryIds.length > 0 && checkpoint.pageSize > 10) {
+        checkpoint.pageSize = 10;
+        saveCheckpoint();
+        pagesFetched++;
+        continue;
+      }
+
+      if (nextToken && checkpoint.seenTokens.includes(nextToken)) {
+        throw new Error("X repeated a pagination token; coverage is incomplete. Retry with --restart.");
+      }
+      const existingLevels = store.getHydrationLevels(primaryIds);
       const snapshot = buildSnapshot(
-        primaryTweets,
-        asRecord(result.includes),
+        primaryTweets.filter((tweet) => existingLevels.get(readString(asRecord(tweet), "id")) !== "full"),
+        asRecord(response.includes),
         primaryIds,
         syncedAt,
         syncRunId,
         "basic",
       );
-      store.upsertSnapshot(snapshot);
-
-      for (const id of primaryIds) {
-        if (nextHeadWindow.length < 20) nextHeadWindow.push(id);
+      const seen = new Set(checkpoint.seenIds);
+      const newIds = primaryIds.filter((id) => !seen.has(id));
+      checkpoint.seenIds = [...new Set([...checkpoint.seenIds, ...primaryIds])];
+      for (const id of newIds) {
+        if (checkpoint.headWindow.length < 20) checkpoint.headWindow.push(id);
       }
-      for (const id of primaryIds) {
-        queuedHydrationIds.add(id);
-      }
+      checkpoint.pendingHydration = store.getIdsNeedingHydration(primaryIds);
+      checkpoint.nextToken = nextToken || undefined;
+      if (nextToken) checkpoint.seenTokens.push(nextToken);
 
-      pagesFetched += 1;
-      bookmarksSeen += primaryIds.length;
-
-      if (primaryTweets.some((tweet) => headSet.has(readString(asRecord(tweet), "id")))) {
-        if (canStopOnHead) {
-          stopReason = "head_window";
-          break;
-        }
+      const seenIds = new Set(checkpoint.seenIds);
+      const anchors = checkpoint.previousHead.filter((id) => seenIds.has(id));
+      const connected = checkpoint.mode === "incremental" && checkpoint.previousHead.length > 0 &&
+        anchors.length >= Math.min(2, checkpoint.previousHead.length);
+      // Never stop on publication date: bookmarks can contain old tweets at the head.
+      if (!nextToken || connected) {
+        checkpoint.enumerationComplete = true;
+        checkpoint.stopReason = !nextToken ? "exhausted" : "head_window";
       }
-
-      const hasRecentCreatedAt = primaryTweets.some((tweet) =>
-        createdAtWithinDays(tweet, cutoffIso),
-      );
-      stalePages = hasRecentCreatedAt ? 0 : stalePages + 1;
-      if (stalePages >= 2) {
-        stopReason = "cutoff";
-        break;
-      }
-
-      const nextToken = getNextPaginationToken(asRecord(result));
-      if (!nextToken) {
-        stopReason = "exhausted";
-        break;
-      }
-      paginationToken = nextToken;
+      store.saveSyncPage(snapshot, checkpoint);
+      pagesFetched++;
+      bookmarksSeen += newIds.length;
     }
-
-    const hydrated = await hydratePosts(
-      client,
-      store,
-      [...queuedHydrationIds],
-      syncRunId,
-    );
-
-    store.setHeadWindow(nextHeadWindow);
-    store.updateSyncMetadata(days, hydrated.oldestCreatedAt);
-
-    return {
-      pagesFetched,
-      bookmarksSeen,
-      postsHydrated: hydrated.hydratedCount,
-      stopReason,
-      lastSyncAt: store.getLastSyncAt(),
-      days,
-    };
+  } catch (error) {
+    const retryAt = rateLimitRetryAt(error);
+    if (retryAt !== undefined && checkpoint) return result("rate_limit", retryAt);
+    throw error;
   } finally {
+    unlock?.();
     store.close();
   }
 }

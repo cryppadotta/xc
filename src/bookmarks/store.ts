@@ -114,6 +114,9 @@ export interface BookmarkStatus {
   oldestFulltextCreatedAt: string;
   headWindow: string[];
   hasCompletedSync: boolean;
+  coverageComplete: boolean;
+  fullScanCompletedAt: string;
+  syncPending: boolean;
 }
 
 function nowIso(): string {
@@ -308,6 +311,14 @@ export class BookmarkStore {
           updated_at = excluded.updated_at
       `)
       .run(scope, value, updatedAt);
+  }
+
+  /** A page and its continuation must survive together, never one without the other. */
+  saveSyncPage(snapshot: BookmarkSnapshot, checkpoint: unknown): void {
+    this.db.transaction(() => {
+      this.upsertSnapshot(snapshot);
+      this.setState("local:sync_checkpoint_v2", JSON.stringify(checkpoint));
+    })();
   }
 
   hasCompletedSync(): boolean {
@@ -651,6 +662,10 @@ export class BookmarkStore {
       oldestFulltextCreatedAt: this.getOldestFulltextCreatedAt(),
       headWindow: this.getHeadWindow(),
       hasCompletedSync: this.hasCompletedSync(),
+      coverageComplete: this.getState("local:full_scan_completed_at_v2") !== "" &&
+        this.getState("local:sync_checkpoint_v2") === "",
+      fullScanCompletedAt: this.getState("local:full_scan_completed_at_v2"),
+      syncPending: this.getState("local:sync_checkpoint_v2") !== "",
     };
   }
 

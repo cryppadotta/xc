@@ -76,6 +76,10 @@ function printSqlRows(columns: string[], rows: string[][]): void {
 
 function printCacheHeader(store: BookmarkStore): void {
   const status = store.getStatus();
+  if (!status.coverageComplete && status.bookmarkCount > 0) {
+    console.log("Local bookmark cache coverage is incomplete; run sync to resume or verify.\n");
+    return;
+  }
   if (status.hasCompletedSync) {
     console.log(`Local bookmark cache synced ${new Date(status.lastSyncAt).toLocaleString()} (${status.lastSyncDays}d window)\n`);
     return;
@@ -148,8 +152,12 @@ export function registerBookmarksCommand(program: Command): void {
   local
     .command("sync")
     .description("Sync bookmarks into the local SQLite cache")
-    .option("--days <n>", "Target post coverage window in days", "30")
+    .option("--days <n>", "Compatibility window label; sync always covers bookmark order", "30")
     .option("--max-pages <n>", "Maximum pages to fetch")
+    .option("--full", "Verify all API-accessible bookmarks, ignoring the incremental head")
+    .option("--restart", "Restart enumeration while retaining cached posts")
+    .option("--page-size <n>", "Bookmarks per page (1-99; conservative default 10)", "10")
+    .option("--no-wait", "Save progress and return instead of waiting for rate-limit reset")
     .option("--json", "Output raw JSON")
     .option("--account <name>", "Account to use")
     .action(async (opts) => {
@@ -158,6 +166,10 @@ export function registerBookmarksCommand(program: Command): void {
           accountName: opts.account,
           days: parseDays(opts.days) || 30,
           maxPages: opts.maxPages ? parseLimit(opts.maxPages, 1) : 0,
+          full: opts.full,
+          restart: opts.restart,
+          pageSize: parseLimit(opts.pageSize, 10),
+          wait: opts.wait,
         });
 
         if (opts.json) {
@@ -170,6 +182,8 @@ export function registerBookmarksCommand(program: Command): void {
         );
         console.log(`Hydrated ${result.postsHydrated} post${result.postsHydrated === 1 ? "" : "s"}.`);
         console.log(`Stop reason: ${result.stopReason}`);
+        console.log(`Coverage complete: ${result.coverageComplete}; mode: ${result.mode}; resumed: ${result.resumed}`);
+        if (result.retryAt) console.log(`Retry after: ${result.retryAt}`);
         console.log(`Last sync: ${new Date(result.lastSyncAt).toLocaleString()}`);
         console.log(`Request cost this sync: $${getSessionCost().total.toFixed(2)}`);
       } catch (err) {
@@ -199,6 +213,9 @@ export function registerBookmarksCommand(program: Command): void {
           console.log(`users=${status.userCount}`);
           console.log(`media=${status.mediaCount}`);
           console.log(`fulltext=${status.fulltextCount}`);
+          console.log(`coverage_complete=${status.coverageComplete}`);
+          console.log(`full_scan_completed_at=${status.fullScanCompletedAt || "never"}`);
+          console.log(`sync_pending=${status.syncPending}`);
           console.log(`last_sync=${status.lastSyncAt || "never"}`);
           console.log(`sync_window_days=${status.lastSyncDays || 0}`);
           console.log(`oldest_fulltext_created_at=${status.oldestFulltextCreatedAt || ""}`);

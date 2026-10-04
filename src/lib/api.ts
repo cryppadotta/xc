@@ -13,6 +13,7 @@ import {
 import { refreshAccessToken } from "./oauth.js";
 import { logApiCall } from "./cost.js";
 import { checkBudget } from "./budget.js";
+import { protectClient, type RateLimitOptions } from "./rate-limit.js";
 
 /**
  * Wrap an SDK Client so every namespace method call (e.g. client.posts.searchRecent)
@@ -34,11 +35,13 @@ function wrapClient(client: Client): Client {
               return async (...args: unknown[]) => {
                 const endpoint = `${prop}.${nsProp}`;
                 await checkBudget(endpoint);
-                logApiCall(endpoint);
-                return (nsValue as (...a: unknown[]) => unknown).apply(
+                const result = await (nsValue as (...a: unknown[]) => unknown).apply(
                   nsTarget,
                   args,
                 );
+                // Rejected/rate-limited attempts are not successful paid reads.
+                logApiCall(endpoint);
+                return result;
               };
             }
             return nsValue;
@@ -55,7 +58,7 @@ function wrapClient(client: Client): Client {
  * Automatically refreshes OAuth2 tokens if expired.
  * Returns a proxy-wrapped client that logs usage and enforces budgets.
  */
-export async function getClient(accountName?: string): Promise<Client> {
+export async function getClient(accountName?: string, rateLimitOptions?: RateLimitOptions): Promise<Client> {
   const account = getAccount(accountName);
   if (!account) {
     throw new Error(
@@ -64,13 +67,16 @@ export async function getClient(accountName?: string): Promise<Client> {
   }
 
   const { auth } = account;
+  // Stable across user-ID caching and OAuth token refresh.
+  const scope = `${account.name}:${auth.type}:${auth.clientId ?? auth.bearerToken ?? ""}`;
+  const wrap = (client: Client) => wrapClient(protectClient(client, scope, rateLimitOptions));
 
   // Bearer token — straightforward
   if (auth.type === "bearer") {
     if (!auth.bearerToken) {
       throw new Error("Bearer token is empty. Run: xc auth token <TOKEN>");
     }
-    return wrapClient(new Client({ bearerToken: auth.bearerToken }));
+    return wrap(new Client({ bearerToken: auth.bearerToken }));
   }
 
   // OAuth 2.0 — check expiry, refresh if needed
@@ -105,7 +111,7 @@ export async function getClient(accountName?: string): Promise<Client> {
       const name = accountName ?? "default";
       setAccount(name, { ...account, auth: updatedAuth });
 
-      return wrapClient(
+      return wrap(
         new Client({
           accessToken: result.accessToken,
           ...(auth.bearerToken ? { bearerToken: auth.bearerToken } : {}),
@@ -113,7 +119,7 @@ export async function getClient(accountName?: string): Promise<Client> {
       );
     }
 
-    return wrapClient(
+    return wrap(
       new Client({
         accessToken: auth.accessToken,
         ...(auth.bearerToken ? { bearerToken: auth.bearerToken } : {}),

@@ -90,8 +90,9 @@ xc unhide 1234567890             # Unhide a reply
 
 ```bash
 xc bookmarks remote              # List your bookmarks from X
-xc bookmarks local sync          # Sync the local bookmark cache (30d post window by default)
-xc bookmarks local sync --days 60
+xc bookmarks local sync          # Bootstrap full coverage, then sync only new bookmarks
+xc bookmarks local sync --full   # Explicitly audit every API-accessible bookmark
+xc bookmarks local sync --max-pages 20 --no-wait # Bounded job; resume automatically next run
 xc bookmarks local list          # Browse cached bookmarks
 xc bookmarks local search "sqlite fts"
 xc bookmarks local show 1234567890
@@ -105,9 +106,41 @@ xc unbookmark 1234567890         # Remove bookmark
 Sync uses a cheap bookmark-enumeration pass plus a richer full-text hydration pass, so later syncs avoid re-fetching article bodies, long-post text, and referenced-post text that are already cached.
 Each `xc bookmarks local sync` run also prints `Request cost this sync: $...` so you can see the cost of that specific sync, not just the rolling footer.
 
+The initial sync follows every continuation token, without stopping on tweet age.
+Only a scan that reaches the API's end establishes the full-coverage baseline;
+legacy cache/head metadata does not establish it. Later runs fetch new bookmarks
+until at least two entries from the completed head reconnect with that baseline
+(one if the baseline had only one bookmark). `--full` forces a fresh audit, useful
+periodically when bookmarks have been removed or reordered. The local database
+is an archive: previously cached, removed bookmarks are retained.
+
+Each page and its continuation are committed together. A page cap, interruption,
+or rate limit leaves a durable cursor and hydration queue; rerunning resumes
+without enumerating earlier pages or hydrating already-full posts again. New head
+markers are committed only after the scan finishes. `--restart` deliberately
+restarts enumeration but retains hydrated content. Only one sync per account
+can run at a time. JSON/status output reports `coverageComplete`,
+`fullScanCompletedAt`, and pending work; a capped/throttled run is not complete.
+
+Enumeration requests minimal tweet fields, with 10 bookmarks per page by default,
+so idle heartbeats read only a small overlap. `--page-size 1..99` is configurable;
+100 is rejected because observed X responses omit its continuation token despite
+more bookmarks being available. A tokenless first page at larger sizes falls back
+to 10 before declaring exhaustion. Small pages can require more requests for the
+one-time backfill; they do not require fetching the entire archive on every run.
+
+All SDK requests observe X's `x-rate-limit-remaining`, `x-rate-limit-reset`, and
+`Retry-After` headers. Depleted endpoint/account buckets persist across CLI runs.
+The client waits until reset and retries rejected 429s at most twice; unknown
+billing/cap 429s, network failures, and other failures are not blindly replayed.
+`--no-wait` makes sync return saved progress and `retryAt` instead of sleeping.
+API keys and paid credits do not exempt requests from rate limits. Usage logs
+record successful calls only. Dollar figures remain approximate per-request
+estimates, not an invoice or an accurate per-tweet spending cap.
+
 Notes:
 
-- `--days` refers to bookmarked posts' `created_at`, not when you bookmarked them. X does not expose `bookmarked_at`.
+- `--days` on sync is retained as a compatibility label; it never truncates enumeration. Date filters on local list/search still refer to tweet publication dates, not bookmark dates. X does not expose `bookmarked_at`.
 - local sync can only ingest what X's official bookmark APIs return. If the API stops early or does not paginate, `xc` cannot manufacture older bookmarks that the server does not expose.
 
 ### Blocks & Mutes
